@@ -1,258 +1,386 @@
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { useAuth } from "@/components/auth-provider"
 import { MainLayout } from "@/components/main-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getUsuarios, createUsuario, updateUsuario, deleteUsuario, type Usuario, canManageUsers } from "@/lib/db"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Users, Plus, Clock, CheckCircle, Phone, Mail, Calendar } from "lucide-react"
-import Link from "next/link"
+import { toast } from "@/hooks/use-toast"
+import { MoreHorizontal, PlusCircle, Trash2, Edit, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+
+const formSchema = z.object({
+  nombre: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  apellidos: z.string().min(2, { message: "Los apellidos deben tener al menos 2 caracteres." }),
+  email: z.string().email({ message: "Debe ser un email válido." }),
+  password: z
+    .string()
+    .min(6, { message: "La contraseña debe tener al menos 6 caracteres." })
+    .optional()
+    .or(z.literal("")),
+  dni: z.string().optional(),
+  telefono: z.string().optional(),
+  rol: z.enum(["admin", "jefe_taller", "tecnico", "recepcion"]),
+})
 
 export default function PersonalPage() {
-  const empleados = [
-    {
-      id: 1,
-      nombre: "Juan Pérez",
-      puesto: "Técnico Senior",
-      telefono: "666 123 456",
-      email: "juan.perez@cmghidraulica.com",
-      estado: "Activo",
-      horasHoy: "7h 30m",
-      horasSemana: "38h 15m",
-      ultimoFichaje: "08:00 - Entrada",
-    },
-    {
-      id: 2,
-      nombre: "María González",
-      puesto: "Técnico",
-      telefono: "677 234 567",
-      email: "maria.gonzalez@cmghidraulica.com",
-      estado: "Activo",
-      horasHoy: "8h 00m",
-      horasSemana: "40h 00m",
-      ultimoFichaje: "08:15 - Entrada",
-    },
-    {
-      id: 3,
-      nombre: "Carlos Ruiz",
-      puesto: "Técnico",
-      telefono: "688 345 678",
-      email: "carlos.ruiz@cmghidraulica.com",
-      estado: "Vacaciones",
-      horasHoy: "0h 00m",
-      horasSemana: "0h 00m",
-      ultimoFichaje: "Vacaciones hasta 20/01",
-    },
-    {
-      id: 4,
-      nombre: "Ana Martín",
-      puesto: "Administrativa",
-      telefono: "699 456 789",
-      email: "ana.martin@cmghidraulica.com",
-      estado: "Activo",
-      horasHoy: "8h 00m",
-      horasSemana: "40h 00m",
-      ultimoFichaje: "09:00 - Entrada",
-    },
-  ]
+  const { user: authUser } = useAuth()
+  const router = useRouter()
+  const [personal, setPersonal] = useState<Usuario[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<Usuario | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const fichajes = [
-    { empleado: "Juan Pérez", hora: "08:00", tipo: "Entrada", fecha: "16/01/2024" },
-    { empleado: "María González", hora: "08:15", tipo: "Entrada", fecha: "16/01/2024" },
-    { empleado: "Ana Martín", hora: "09:00", tipo: "Entrada", fecha: "16/01/2024" },
-    { empleado: "Juan Pérez", hora: "12:00", tipo: "Pausa", fecha: "16/01/2024" },
-    { empleado: "María González", hora: "12:30", tipo: "Pausa", fecha: "16/01/2024" },
-  ]
+  const hasPermission = useMemo(() => canManageUsers(authUser?.rol), [authUser])
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      nombre: "",
+      apellidos: "",
+      email: "",
+      password: "",
+      dni: "",
+      telefono: "",
+      rol: "tecnico",
+    },
+  })
+
+  useEffect(() => {
+    if (!authUser) {
+      router.push("/")
+      return
+    }
+    if (!hasPermission) {
+      return
+    }
+    fetchPersonal()
+  }, [authUser, hasPermission, router])
+
+  useEffect(() => {
+    if (isModalOpen) {
+      if (selectedUser) {
+        form.reset({
+          nombre: selectedUser.nombre,
+          apellidos: selectedUser.apellidos,
+          email: selectedUser.email,
+          password: "",
+          dni: selectedUser.dni || "",
+          telefono: selectedUser.telefono || "",
+          rol: selectedUser.rol,
+        })
+      } else {
+        form.reset({
+          nombre: "",
+          apellidos: "",
+          email: "",
+          password: "",
+          dni: "",
+          telefono: "",
+          rol: "tecnico",
+        })
+      }
+    }
+  }, [selectedUser, isModalOpen, form])
+
+  const fetchPersonal = async () => {
+    setLoading(true)
+    const { data } = await getUsuarios()
+    if (data) {
+      setPersonal(data)
+    }
+    setLoading(false)
+  }
+
+  const openModal = (user: Usuario | null = null) => {
+    setSelectedUser(user)
+    setIsModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setIsModalOpen(false)
+    setSelectedUser(null)
+  }
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true)
+
+    const userData: any = { ...values }
+    if (!userData.password) {
+      delete userData.password
+    }
+
+    let error = null
+    if (selectedUser) {
+      const { error: updateError } = await updateUsuario(selectedUser.id, userData)
+      error = updateError
+    } else {
+      if (!userData.password) {
+        form.setError("password", { type: "manual", message: "La contraseña es obligatoria para nuevos usuarios." })
+        setIsSubmitting(false)
+        return
+      }
+      const { password, ...rest } = userData
+      const { error: createError } = await createUsuario(rest, password)
+      error = createError
+    }
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" })
+    } else {
+      toast({ title: "Éxito", description: `Usuario ${selectedUser ? "actualizado" : "creado"} correctamente.` })
+      closeModal()
+      fetchPersonal()
+    }
+    setIsSubmitting(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("¿Estás seguro de que quieres eliminar este empleado?")) {
+      const { error } = await deleteUsuario(id)
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" })
+      } else {
+        toast({ title: "Éxito", description: "Empleado eliminado correctamente." })
+        fetchPersonal()
+      }
+    }
+  }
+
+  if (!hasPermission) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-full">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-center">Acceso Denegado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center">No tienes permisos para acceder a esta sección.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    )
+  }
 
   return (
     <MainLayout>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Personal</h1>
-            <p className="text-gray-600">Gestión de empleados y fichajes</p>
-          </div>
-          <Link href="/personal/nuevo">
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Empleado
+      <div className="p-4 md:p-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Gestión de Personal</CardTitle>
+            <Button onClick={() => openModal()}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Añadir Empleado
             </Button>
-          </Link>
-        </div>
-
-        {/* Resumen */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Total Empleados</p>
-                  <p className="text-xl font-bold">8</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Activos Hoy</p>
-                  <p className="text-xl font-bold">6</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-amber-600" />
-                <div>
-                  <p className="text-sm text-gray-600">En Vacaciones</p>
-                  <p className="text-xl font-bold">2</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-purple-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Horas Semana</p>
-                  <p className="text-xl font-bold">238h</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Lista de empleados */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Empleados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {empleados.map((empleado) => (
-                  <div key={empleado.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                    <Avatar>
-                      <AvatarFallback>
-                        {empleado.nombre
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{empleado.nombre}</h3>
-                        <Badge variant={empleado.estado === "Activo" ? "default" : "secondary"}>
-                          {empleado.estado}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{empleado.puesto}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {empleado.telefono}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {empleado.email}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right text-sm">
-                      <p className="font-medium">{empleado.horasHoy}</p>
-                      <p className="text-gray-500">Hoy</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Fichajes recientes */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Fichajes de Hoy
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {fichajes.map((fichaje, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          fichaje.tipo === "Entrada"
-                            ? "bg-green-500"
-                            : fichaje.tipo === "Salida"
-                              ? "bg-red-500"
-                              : "bg-amber-500"
-                        }`}
-                      ></div>
-                      <div>
-                        <p className="font-medium text-sm">{fichaje.empleado}</p>
-                        <p className="text-xs text-gray-500">{fichaje.tipo}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-sm">{fichaje.hora}</p>
-                      <p className="text-xs text-gray-500">{fichaje.fecha}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Horas trabajadas por empleado */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Resumen Semanal de Horas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Empleado</th>
-                    <th className="text-center p-2">Lunes</th>
-                    <th className="text-center p-2">Martes</th>
-                    <th className="text-center p-2">Miércoles</th>
-                    <th className="text-center p-2">Jueves</th>
-                    <th className="text-center p-2">Viernes</th>
-                    <th className="text-center p-2">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {empleados.map((empleado) => (
-                    <tr key={empleado.id} className="border-b">
-                      <td className="p-2 font-medium">{empleado.nombre}</td>
-                      <td className="text-center p-2">8h</td>
-                      <td className="text-center p-2">8h</td>
-                      <td className="text-center p-2">7.5h</td>
-                      <td className="text-center p-2">8h</td>
-                      <td className="text-center p-2">6.5h</td>
-                      <td className="text-center p-2 font-medium">{empleado.horasSemana}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>Activo</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">
+                        Cargando personal...
+                      </TableCell>
+                    </TableRow>
+                  ) : personal.length > 0 ? (
+                    personal.map((empleado) => (
+                      <TableRow key={empleado.id}>
+                        <TableCell>
+                          {empleado.nombre} {empleado.apellidos}
+                        </TableCell>
+                        <TableCell>{empleado.email}</TableCell>
+                        <TableCell>
+                          <Badge>{empleado.rol}</Badge>
+                        </TableCell>
+                        <TableCell>{empleado.activo ? "Sí" : "No"}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Abrir menú</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openModal(empleado)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDelete(empleado.id)} className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">
+                        No se encontraron empleados.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>{selectedUser ? "Editar Empleado" : "Añadir Nuevo Empleado"}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="nombre"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Juan" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="apellidos"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Apellidos *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Pérez García" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="juan.perez@empresa.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña {selectedUser ? "(Opcional)" : "*"}</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      {selectedUser ? "Dejar en blanco para no cambiarla." : "Mínimo 6 caracteres."}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="dni"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>DNI</FormLabel>
+                      <FormControl>
+                        <Input placeholder="12345678A" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="telefono"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Teléfono</FormLabel>
+                      <FormControl>
+                        <Input placeholder="600123456" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="rol"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rol *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un rol" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="tecnico">Técnico</SelectItem>
+                        <SelectItem value="jefe_taller">Jefe de Taller</SelectItem>
+                        <SelectItem value="recepcion">Recepción</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={closeModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {selectedUser ? "Guardar Cambios" : "Crear Empleado"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   )
 }

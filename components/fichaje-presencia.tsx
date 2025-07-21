@@ -3,15 +3,16 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { LogIn, LogOut } from "lucide-react"
-import { fichajesDB } from "@/lib/database"
-import { useAuth } from "./auth-provider"
-import { toast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
+import { Clock, User, LogIn, LogOut, Loader2 } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
+import { getUltimoFichajePresencia, createFichajePresencia } from "@/lib/db"
 
 export function FichajePresencia() {
   const { user } = useAuth()
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [ultimoFichaje, setUltimoFichaje] = useState<any>(null)
+  const [isPresent, setIsPresent] = useState(false)
+  const [lastEntry, setLastEntry] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
@@ -24,120 +25,102 @@ export function FichajePresencia() {
 
   useEffect(() => {
     if (user) {
-      cargarUltimoFichaje()
+      checkPresenceStatus()
     }
   }, [user])
 
-  const cargarUltimoFichaje = async () => {
+  const checkPresenceStatus = async () => {
     if (!user) return
 
     try {
-      const fichaje = await fichajesDB.getUltimoFichajePresencia(user.id)
-      setUltimoFichaje(fichaje)
+      const { data: lastFichaje, error } = await getUltimoFichajePresencia(user.id)
+      if (error) throw error
+
+      if (lastFichaje) {
+        setIsPresent(lastFichaje.tipo_fichaje === "entrada")
+        setLastEntry(
+          lastFichaje.tipo_fichaje === "entrada"
+            ? `Entrada - ${new Date(lastFichaje.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            : `Salida - ${new Date(lastFichaje.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        )
+      } else {
+        setIsPresent(false)
+        setLastEntry(null)
+      }
     } catch (error) {
-      console.error("Error cargando último fichaje:", error)
+      console.error("Error checking presence:", error)
     }
   }
 
-  const handleFichaje = async (tipo: "entrada" | "salida") => {
-    if (!user) return
+  const handleFichaje = async () => {
+    if (!user || isLoading) return
 
     setIsLoading(true)
     try {
-      await fichajesDB.create({
-        usuario_id: user.id,
-        tipo,
-        fecha_hora: new Date().toISOString(),
-        parte_trabajo_id: null,
-        observaciones: `Fichaje de ${tipo} - Presencia general`,
-      })
-
-      await cargarUltimoFichaje()
-
-      toast({
-        title: "Fichaje registrado",
-        description: `${tipo === "entrada" ? "Entrada" : "Salida"} registrada correctamente`,
-      })
+      const tipo = isPresent ? "salida" : "entrada"
+      const { error } = await createFichajePresencia(user.id, tipo)
+      if (error) throw error
+      await checkPresenceStatus()
     } catch (error) {
       console.error("Error en fichaje:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo registrar el fichaje",
-        variant: "destructive",
-      })
     } finally {
       setIsLoading(false)
     }
   }
 
+  if (!user) return null
+
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("es-ES", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    })
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   }
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-ES", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
+    return date.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })
   }
 
-  const estaEnTrabajo = ultimoFichaje?.tipo === "entrada"
-
   return (
-    <Card className="bg-blue-800/50 border-blue-700">
-      <CardContent className="p-4">
-        <div className="text-center space-y-3">
-          {/* Reloj */}
-          <div className="space-y-1">
-            <div className="text-2xl font-mono font-bold text-white">{formatTime(currentTime)}</div>
-            <div className="text-xs text-blue-200">{formatDate(currentTime)}</div>
-          </div>
-
-          {/* Estado actual */}
-          <div className="flex items-center justify-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${estaEnTrabajo ? "bg-green-400" : "bg-red-400"}`} />
-            <span className="text-xs text-blue-100">{estaEnTrabajo ? "DENTRO" : "FUERA"}</span>
-          </div>
-
-          {/* Último fichaje */}
-          {ultimoFichaje && (
-            <div className="text-xs text-blue-200">
-              Último: {ultimoFichaje.tipo === "entrada" ? "Entrada" : "Salida"} -{" "}
-              {new Date(ultimoFichaje.fecha_hora).toLocaleTimeString("es-ES", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
-          )}
-
-          {/* Botones de fichaje */}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => handleFichaje("entrada")}
-              disabled={isLoading || estaEnTrabajo}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs"
-            >
-              <LogIn className="h-3 w-3 mr-1" />
-              Entrada
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleFichaje("salida")}
-              disabled={isLoading || !estaEnTrabajo}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs"
-            >
-              <LogOut className="h-3 w-3 mr-1" />
-              Salida
-            </Button>
-          </div>
+    <Card className="w-full max-w-sm">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Clock className="h-4 w-4" />
+          Control de Presencia
         </div>
+
+        <div className="text-center">
+          <div className="text-2xl font-mono font-bold">{formatTime(currentTime)}</div>
+          <div className="text-sm text-gray-600">{formatDate(currentTime)}</div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            <span className="text-sm font-medium">{user.nombre.split(" ")[0]}</span>
+          </div>
+          <Badge variant={isPresent ? "default" : "secondary"} className={isPresent ? "bg-green-500" : "bg-gray-500"}>
+            {isPresent ? "Presente" : "Ausente"}
+          </Badge>
+        </div>
+
+        {lastEntry && <div className="text-center text-sm text-gray-600">{lastEntry}</div>}
+
+        <Button
+          onClick={handleFichaje}
+          disabled={isLoading}
+          className={`w-full ${
+            isPresent ? "bg-red-500 hover:bg-red-600 text-white" : "bg-green-500 hover:bg-green-600 text-white"
+          }`}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <>
+              {isPresent ? <LogOut className="h-4 w-4 mr-2" /> : <LogIn className="h-4 w-4 mr-2" />}
+              {isPresent ? "Marcar Salida" : "Marcar Entrada"}
+            </>
+          )}
+        </Button>
+
+        <p className="text-xs text-gray-500 text-center">Registra tu entrada y salida del taller</p>
       </CardContent>
     </Card>
   )

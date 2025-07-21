@@ -5,9 +5,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE usuarios (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255),
   nombre VARCHAR(255) NOT NULL,
-  rol VARCHAR(50) CHECK (rol IN ('admin', 'jefe_taller', 'tecnico')) NOT NULL,
+  apellidos VARCHAR(255),
+  dni VARCHAR(20),
+  rol VARCHAR(50) CHECK (rol IN ('admin', 'jefe_taller', 'tecnico', 'recepcion')) NOT NULL,
   telefono VARCHAR(20),
   activo BOOLEAN DEFAULT true,
   avatar_url TEXT,
@@ -39,6 +41,7 @@ CREATE TABLE vehiculos (
   serie VARCHAR(100),
   tipo_vehiculo VARCHAR(100),
   año INTEGER,
+  activo BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -55,6 +58,7 @@ CREATE TABLE materiales (
   precio_unitario DECIMAL(10,2),
   proveedor VARCHAR(255),
   ubicacion VARCHAR(100),
+  unidad VARCHAR(50) DEFAULT 'Unidades',
   activo BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -71,23 +75,30 @@ CREATE TABLE partes_trabajo (
   descripcion TEXT NOT NULL,
   estado VARCHAR(50) CHECK (estado IN ('pendiente', 'en_curso', 'completado', 'cancelado')) DEFAULT 'pendiente',
   prioridad VARCHAR(20) CHECK (prioridad IN ('baja', 'media', 'alta', 'urgente')) DEFAULT 'media',
-  fecha_inicio DATE,
-  fecha_fin DATE,
+  fecha_inicio TIMESTAMP WITH TIME ZONE,
+  fecha_fin TIMESTAMP WITH TIME ZONE,
   horas_estimadas DECIMAL(5,2),
   horas_reales DECIMAL(5,2) DEFAULT 0,
   ubicacion TEXT,
   observaciones TEXT,
+  trabajo_realizado TEXT,
   firma_cliente TEXT, -- Base64 de la firma
   dni_cliente VARCHAR(20),
+  validado BOOLEAN DEFAULT false,
+  validado_por UUID REFERENCES usuarios(id),
+  fecha_validacion TIMESTAMP WITH TIME ZONE,
+  cliente_nombre VARCHAR(255),
+  vehiculo_matricula VARCHAR(20),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabla de fichajes
+-- Tabla de fichajes (actualizada con columna tipo)
 CREATE TABLE fichajes (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   usuario_id UUID REFERENCES usuarios(id) ON DELETE CASCADE,
   parte_trabajo_id UUID REFERENCES partes_trabajo(id) ON DELETE CASCADE,
+  tipo VARCHAR(20) CHECK (tipo IN ('trabajo', 'presencia')) NOT NULL DEFAULT 'trabajo',
   tipo_fichaje VARCHAR(20) CHECK (tipo_fichaje IN ('entrada', 'salida', 'pausa_inicio', 'pausa_fin')) NOT NULL,
   fecha_hora TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   ubicacion_gps POINT,
@@ -100,7 +111,11 @@ CREATE TABLE parte_materiales (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   parte_trabajo_id UUID REFERENCES partes_trabajo(id) ON DELETE CASCADE,
   material_id UUID REFERENCES materiales(id) ON DELETE CASCADE,
+  referencia VARCHAR(50),
+  descripcion TEXT,
   cantidad_utilizada INTEGER NOT NULL,
+  cantidad INTEGER NOT NULL DEFAULT 1,
+  unidad VARCHAR(50) DEFAULT 'Unidades',
   precio_unitario DECIMAL(10,2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -145,6 +160,8 @@ CREATE TABLE solicitudes_vacaciones (
   comentario_admin TEXT,
   aprobado_por UUID REFERENCES usuarios(id),
   fecha_aprobacion TIMESTAMP WITH TIME ZONE,
+  fecha_respuesta TIMESTAMP WITH TIME ZONE,
+  respondido_por UUID REFERENCES usuarios(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -158,6 +175,7 @@ CREATE TABLE citas (
   fecha_hora TIMESTAMP WITH TIME ZONE NOT NULL,
   duracion_estimada INTEGER, -- en minutos
   tipo_trabajo VARCHAR(100),
+  tipo_servicio VARCHAR(100),
   descripcion TEXT,
   estado VARCHAR(50) CHECK (estado IN ('programada', 'confirmada', 'completada', 'cancelada')) DEFAULT 'programada',
   observaciones TEXT,

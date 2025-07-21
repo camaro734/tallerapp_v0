@@ -9,7 +9,7 @@ type ToasterToast = {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
-  action?: React.ReactElement
+  action?: React.ReactNode
   variant?: "default" | "destructive"
 }
 

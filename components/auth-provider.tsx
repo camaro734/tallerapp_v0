@@ -1,145 +1,82 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { supabase, isSupabaseReady } from "@/lib/supabase"
-import { usuariosDB } from "@/lib/database"
-import type { Usuario } from "@/lib/supabase"
-
-export type UserRole = "admin" | "jefe_taller" | "tecnico"
+import { createContext, useContext, useEffect, useState } from "react"
+import { authenticateUser, getUserById } from "@/lib/db"
+import type { Usuario } from "@/lib/db"
 
 interface AuthContextType {
   user: Usuario | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
-  isLoading: boolean
+  loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Usuario | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check for existing session on mount
     const checkSession = async () => {
       try {
-        if (isSupabaseReady()) {
-          const {
-            data: { session },
-          } = await supabase!.auth.getSession()
-          if (session?.user) {
-            const userData = await usuariosDB.getByEmail(session.user.email!)
+        const savedUserId = localStorage.getItem("cmg_user_id")
+        if (savedUserId) {
+          const { data: userData } = await getUserById(savedUserId)
+          if (userData && userData.activo) {
             setUser(userData)
-          }
-        } else {
-          // Modo mock: verificar localStorage
-          const savedUser = localStorage.getItem("cmg-user")
-          if (savedUser) {
-            setUser(JSON.parse(savedUser))
+          } else {
+            localStorage.removeItem("cmg_user_id")
           }
         }
       } catch (error) {
         console.error("Error checking session:", error)
+        localStorage.removeItem("cmg_user_id")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     checkSession()
-
-    if (isSupabaseReady()) {
-      // Escuchar cambios de autenticación solo si Supabase está configurado
-      const {
-        data: { subscription },
-      } = supabase!.auth.onAuthStateChange(async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          const userData = await usuariosDB.getByEmail(session.user.email!)
-          setUser(userData)
-        } else if (event === "SIGNED_OUT") {
-          setUser(null)
-        }
-      })
-
-      return () => subscription.unsubscribe()
-    }
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Verificar si el usuario existe en nuestra base de datos
-      const userData = await usuariosDB.getByEmail(email)
-      if (!userData || !userData.activo) {
-        return false
-      }
+      setLoading(true)
 
-      if (isSupabaseReady()) {
-        // Modo Supabase
-        const { data, error } = await supabase!.auth.signInWithPassword({
-          email,
-          password,
-        })
+      const response = await authenticateUser(email, password)
 
-        if (error) {
-          // Si el usuario no existe en Auth, crearlo
-          if (error.message.includes("Invalid login credentials")) {
-            const { error: signUpError } = await supabase!.auth.signUp({
-              email,
-              password,
-              options: {
-                data: {
-                  nombre: userData.nombre,
-                  rol: userData.rol,
-                },
-              },
-            })
-
-            if (signUpError) {
-              console.error("Error creating auth user:", signUpError)
-              return false
-            }
-
-            // Intentar login nuevamente
-            const { error: loginError } = await supabase!.auth.signInWithPassword({
-              email,
-              password,
-            })
-
-            if (loginError) {
-              console.error("Error logging in after signup:", loginError)
-              return false
-            }
-          } else {
-            console.error("Login error:", error)
-            return false
-          }
-        }
+      if (response.data && response.data.activo) {
+        setUser(response.data)
+        localStorage.setItem("cmg_user_id", response.data.id)
+        return { success: true }
       } else {
-        // Modo mock: verificar contraseña simple
-        if (password !== "123456") {
-          return false
-        }
-        localStorage.setItem("cmg-user", JSON.stringify(userData))
+        const errorMessage = response.error?.message || "Credenciales inválidas o usuario inactivo"
+        return { success: false, error: errorMessage }
       }
-
-      setUser(userData)
-      return true
     } catch (error) {
       console.error("Login error:", error)
-      return false
+      return { success: false, error: "Error al iniciar sesión. Inténtalo de nuevo." }
+    } finally {
+      setLoading(false)
     }
   }
 
-  const logout = async () => {
-    if (isSupabaseReady()) {
-      await supabase!.auth.signOut()
-    } else {
-      localStorage.removeItem("cmg-user")
-    }
+  const logout = () => {
     setUser(null)
+    localStorage.removeItem("cmg_user_id")
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  const value = {
+    user,
+    login,
+    logout,
+    loading,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

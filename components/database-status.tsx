@@ -1,21 +1,30 @@
 "use client"
 
-import { isSupabaseReady } from "@/lib/supabase"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Wifi, WifiOff } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { isSupabaseReady } from "@/lib/db"
 
 export function DatabaseStatus() {
-  if (isSupabaseReady()) {
-    return null // No mostrar nada si está configurado
-  }
+  const [isConnected, setIsConnected] = useState(false)
+
+  useEffect(() => {
+    setIsConnected(isSupabaseReady())
+  }, [])
 
   return (
-    <Alert className="mb-4 border-amber-200 bg-amber-50">
-      <AlertTriangle className="h-4 w-4 text-amber-600" />
-      <AlertDescription className="text-amber-800">
-        <strong>Modo de desarrollo:</strong> La aplicación está funcionando con datos de prueba. Para usar la base de
-        datos real, configura las variables de entorno de Supabase en el archivo .env.local
-      </AlertDescription>
-    </Alert>
+    <div className="absolute top-4 right-4">
+      {isConnected ? (
+        <Badge variant="default" className="bg-green-100 text-green-800 border-green-300">
+          <Wifi className="h-3 w-3 mr-1" />
+          Conectado
+        </Badge>
+      ) : (
+        <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
+          <WifiOff className="h-3 w-3 mr-1" />
+          Modo Demo
+        </Badge>
+      )}
+    </div>
   )
 }

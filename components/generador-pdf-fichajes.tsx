@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Download, Eye, Calendar, User, Clock, FileText, Loader2 } from "lucide-react"
-import { fichajesDB, usuariosDB } from "@/lib/database"
-import type { Usuario, Fichaje } from "@/lib/supabase"
+import { getUsuarios, getFichajesByDateRange } from "@/lib/db"
+import type { Usuario, Fichaje } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 
 export function GeneradorPDFFichajes() {
@@ -18,10 +18,10 @@ export function GeneradorPDFFichajes() {
   const [loading, setLoading] = useState(false)
   const [generando, setGenerando] = useState(false)
   const [filtros, setFiltros] = useState({
-    usuario_id: "all", // Updated default value to "all"
+    usuario_id: "all",
     fecha_inicio: "",
     fecha_fin: "",
-    tipo_fichaje: "all", // Updated default value to "all"
+    tipo_fichaje: "all",
   })
   const [fichajes, setFichajes] = useState<Fichaje[]>([])
   const [mostrarPreview, setMostrarPreview] = useState(false)
@@ -32,8 +32,8 @@ export function GeneradorPDFFichajes() {
 
   const cargarUsuarios = async () => {
     try {
-      const data = await usuariosDB.getAll()
-      setUsuarios(data)
+      const { data } = await getUsuarios()
+      if (data) setUsuarios(data)
     } catch (error) {
       console.error("Error cargando usuarios:", error)
     }
@@ -42,16 +42,16 @@ export function GeneradorPDFFichajes() {
   const cargarFichajes = async () => {
     setLoading(true)
     try {
-      const data = await fichajesDB.getByDateRange(
+      const { data } = await getFichajesByDateRange(
         filtros.usuario_id === "all" ? undefined : filtros.usuario_id,
         filtros.fecha_inicio || undefined,
         filtros.fecha_fin || undefined,
       )
 
-      let fichajesFiltrados = data
+      let fichajesFiltrados = data || []
 
       if (filtros.tipo_fichaje !== "all") {
-        fichajesFiltrados = data.filter((f) => f.tipo === filtros.tipo_fichaje)
+        fichajesFiltrados = fichajesFiltrados.filter((f) => f.tipo_fichaje === filtros.tipo_fichaje)
       }
 
       setFichajes(fichajesFiltrados)
@@ -121,197 +121,197 @@ export function GeneradorPDFFichajes() {
     const totalHoras = calcularHorasTrabajadas()
 
     return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Informe de Fichajes - CMG Hidráulica</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            color: #1e40af;
-            margin: 0;
-            font-size: 28px;
-        }
-        .header p {
-            color: #6b7280;
-            margin: 5px 0 0 0;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .info-card {
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid #2563eb;
-        }
-        .info-card h3 {
-            margin: 0 0 5px 0;
-            color: #1e40af;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .info-card p {
-            margin: 0;
-            font-size: 18px;
-            font-weight: bold;
-            color: #374151;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: #dbeafe;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .stat-card h4 {
-            margin: 0 0 5px 0;
-            color: #1e40af;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-        .stat-card p {
-            margin: 0;
-            font-size: 24px;
-            font-weight: bold;
-            color: #1e3a8a;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        th {
-            background-color: #f3f4f6;
-            font-weight: bold;
-            color: #374151;
-        }
-        .entrada {
-            color: #059669;
-            font-weight: bold;
-        }
-        .salida {
-            color: #dc2626;
-            font-weight: bold;
-        }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-            color: #6b7280;
-            font-size: 12px;
-        }
-        @media print {
-            body { background: white; }
-            .container { box-shadow: none; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>CMG Hidráulica</h1>
-            <p>Informe de Fichajes de Personal</p>
-        </div>
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Informe de Fichajes - CMG Hidráulica</title>
+      <style>
+          body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background-color: #f5f5f5;
+          }
+          .container {
+              max-width: 800px;
+              margin: 0 auto;
+              background: white;
+              padding: 30px;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .header {
+              text-align: center;
+              border-bottom: 2px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+          }
+          .header h1 {
+              color: #1e40af;
+              margin: 0;
+              font-size: 28px;
+          }
+          .header p {
+              color: #6b7280;
+              margin: 5px 0 0 0;
+          }
+          .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 30px;
+          }
+          .info-card {
+              background: #f8fafc;
+              padding: 15px;
+              border-radius: 6px;
+              border-left: 4px solid #2563eb;
+          }
+          .info-card h3 {
+              margin: 0 0 5px 0;
+              color: #1e40af;
+              font-size: 14px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+          }
+          .info-card p {
+              margin: 0;
+              font-size: 18px;
+              font-weight: bold;
+              color: #374151;
+          }
+          .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 15px;
+              margin-bottom: 30px;
+          }
+          .stat-card {
+              background: #dbeafe;
+              padding: 15px;
+              border-radius: 6px;
+              text-align: center;
+          }
+          .stat-card h4 {
+              margin: 0 0 5px 0;
+              color: #1e40af;
+              font-size: 12px;
+              text-transform: uppercase;
+          }
+          .stat-card p {
+              margin: 0;
+              font-size: 24px;
+              font-weight: bold;
+              color: #1e3a8a;
+          }
+          table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+          }
+          th, td {
+              padding: 12px;
+              text-align: left;
+              border-bottom: 1px solid #e5e7eb;
+          }
+          th {
+              background-color: #f3f4f6;
+              font-weight: bold;
+              color: #374151;
+          }
+          .entrada {
+              color: #059669;
+              font-weight: bold;
+          }
+          .salida {
+              color: #dc2626;
+              font-weight: bold;
+          }
+          .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              text-align: center;
+              color: #6b7280;
+              font-size: 12px;
+          }
+          @media print {
+              body { background: white; }
+              .container { box-shadow: none; }
+          }
+      </style>
+  </head>
+  <body>
+      <div class="container">
+          <div class="header">
+              <h1>CMG Hidráulica</h1>
+              <p>Informe de Fichajes de Personal</p>
+          </div>
 
-        <div class="info-grid">
-            <div class="info-card">
-                <h3>Usuario</h3>
-                <p>${usuarioSeleccionado ? usuarioSeleccionado.nombre : "Todos los usuarios"}</p>
-            </div>
-            <div class="info-card">
-                <h3>Período</h3>
-                <p>${fechaInicio} - ${fechaFin}</p>
-            </div>
-        </div>
+          <div class="info-grid">
+              <div class="info-card">
+                  <h3>Usuario</h3>
+                  <p>${usuarioSeleccionado ? usuarioSeleccionado.nombre : "Todos los usuarios"}</p>
+              </div>
+              <div class="info-card">
+                  <h3>Período</h3>
+                  <p>${fechaInicio} - ${fechaFin}</p>
+              </div>
+          </div>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h4>Total Fichajes</h4>
-                <p>${fichajes.length}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Días Trabajados</h4>
-                <p>${totalDias}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Horas Totales</h4>
-                <p>${totalHoras.toFixed(1)}h</p>
-            </div>
-        </div>
+          <div class="stats-grid">
+              <div class="stat-card">
+                  <h4>Total Fichajes</h4>
+                  <p>${fichajes.length}</p>
+              </div>
+              <div class="stat-card">
+                  <h4>Días Trabajados</h4>
+                  <p>${totalDias}</p>
+              </div>
+              <div class="stat-card">
+                  <h4>Horas Totales</h4>
+                  <p>${totalHoras.toFixed(1)}h</p>
+              </div>
+          </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Hora</th>
-                    <th>Usuario</th>
-                    <th>Tipo</th>
-                    <th>Parte de Trabajo</th>
-                    <th>Observaciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${fichajes
-                  .map(
-                    (fichaje) => `
-                    <tr>
-                        <td>${new Date(fichaje.fecha_hora).toLocaleDateString()}</td>
-                        <td>${new Date(fichaje.fecha_hora).toLocaleTimeString()}</td>
-                        <td>${fichaje.usuario?.nombre || "Usuario desconocido"}</td>
-                        <td class="${fichaje.tipo}">${fichaje.tipo.toUpperCase()}</td>
-                        <td>${fichaje.parte_trabajo?.numero_parte || "Presencia general"}</td>
-                        <td>${fichaje.observaciones || "-"}</td>
-                    </tr>
-                `,
-                  )
-                  .join("")}
-            </tbody>
-        </table>
+          <table>
+              <thead>
+                  <tr>
+                      <th>Fecha</th>
+                      <th>Hora</th>
+                      <th>Usuario</th>
+                      <th>Tipo</th>
+                      <th>Parte de Trabajo</th>
+                      <th>Observaciones</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  ${fichajes
+                    .map(
+                      (fichaje) => `
+                      <tr>
+                          <td>${new Date(fichaje.fecha_hora).toLocaleDateString()}</td>
+                          <td>${new Date(fichaje.fecha_hora).toLocaleTimeString()}</td>
+                          <td>${fichaje.usuario?.nombre || "Usuario desconocido"}</td>
+                          <td class="${fichaje.tipo_fichaje}">${fichaje.tipo_fichaje.toUpperCase()}</td>
+                          <td>${fichaje.parte_trabajo?.numero_parte || "Presencia general"}</td>
+                          <td>${fichaje.observaciones || "-"}</td>
+                      </tr>
+                  `,
+                    )
+                    .join("")}
+              </tbody>
+          </table>
 
-        <div class="footer">
-            <p>Informe generado el ${new Date().toLocaleString()} por el Sistema de Gestión CMG Hidráulica</p>
-        </div>
-    </div>
-</body>
-</html>
-    `
+          <div class="footer">
+              <p>Informe generado el ${new Date().toLocaleString()} por el Sistema de Gestión CMG Hidráulica</p>
+          </div>
+      </div>
+  </body>
+  </html>
+      `
   }
 
   const calcularHorasTrabajadas = () => {
@@ -333,9 +333,9 @@ export function GeneradorPDFFichajes() {
 
       let entrada = null
       for (const fichaje of fichajesUsuario) {
-        if (fichaje.tipo === "entrada") {
+        if (fichaje.tipo_fichaje === "entrada") {
           entrada = new Date(fichaje.fecha_hora)
-        } else if (fichaje.tipo === "salida" && entrada) {
+        } else if (fichaje.tipo_fichaje === "salida" && entrada) {
           const salida = new Date(fichaje.fecha_hora)
           const horas = (salida.getTime() - entrada.getTime()) / (1000 * 60 * 60)
           totalHoras += horas
@@ -363,7 +363,7 @@ export function GeneradorPDFFichajes() {
               <SelectValue placeholder="Todos los usuarios" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los usuarios</SelectItem> {/* Updated value prop to "all" */}
+              <SelectItem value="all">Todos los usuarios</SelectItem>
               {usuarios.map((usuario) => (
                 <SelectItem key={usuario.id} value={usuario.id}>
                   {usuario.nombre}
@@ -411,7 +411,7 @@ export function GeneradorPDFFichajes() {
               <SelectValue placeholder="Todos los tipos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los tipos</SelectItem> {/* Updated value prop to "all" */}
+              <SelectItem value="all">Todos los tipos</SelectItem>
               <SelectItem value="entrada">Entrada</SelectItem>
               <SelectItem value="salida">Salida</SelectItem>
             </SelectContent>
@@ -523,12 +523,12 @@ export function GeneradorPDFFichajes() {
                           <td className="p-3 border-b border-gray-100">
                             <Badge
                               className={`${
-                                fichaje.tipo === "entrada"
+                                fichaje.tipo_fichaje === "entrada"
                                   ? "bg-green-100 text-green-800 border-green-300"
                                   : "bg-red-100 text-red-800 border-red-300"
                               } border`}
                             >
-                              {fichaje.tipo.toUpperCase()}
+                              {fichaje.tipo_fichaje.toUpperCase()}
                             </Badge>
                           </td>
                           <td className="p-3 border-b border-gray-100">
