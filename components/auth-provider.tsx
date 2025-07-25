@@ -1,82 +1,56 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
-import { authenticateUser, getUserById } from "@/lib/db"
-import type { Usuario } from "@/lib/db"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { authenticateUser, type Usuario } from "@/lib/database"
 
 interface AuthContextType {
   user: Usuario | null
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
-  loading: boolean
+  isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Usuario | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session on mount
-    const checkSession = async () => {
+    // Check if user is stored in localStorage
+    const storedUser = localStorage.getItem("cmg_user")
+    if (storedUser) {
       try {
-        const savedUserId = localStorage.getItem("cmg_user_id")
-        if (savedUserId) {
-          const { data: userData } = await getUserById(savedUserId)
-          if (userData && userData.activo) {
-            setUser(userData)
-          } else {
-            localStorage.removeItem("cmg_user_id")
-          }
-        }
+        setUser(JSON.parse(storedUser))
       } catch (error) {
-        console.error("Error checking session:", error)
-        localStorage.removeItem("cmg_user_id")
-      } finally {
-        setLoading(false)
+        localStorage.removeItem("cmg_user")
       }
     }
-
-    checkSession()
+    setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string) => {
     try {
-      setLoading(true)
+      const { data, error } = await authenticateUser(email, password)
 
-      const response = await authenticateUser(email, password)
-
-      if (response.data && response.data.activo) {
-        setUser(response.data)
-        localStorage.setItem("cmg_user_id", response.data.id)
-        return { success: true }
-      } else {
-        const errorMessage = response.error?.message || "Credenciales inválidas o usuario inactivo"
-        return { success: false, error: errorMessage }
+      if (error || !data) {
+        return { success: false, error: "Credenciales inválidas" }
       }
+
+      setUser(data)
+      localStorage.setItem("cmg_user", JSON.stringify(data))
+      return { success: true }
     } catch (error) {
-      console.error("Login error:", error)
-      return { success: false, error: "Error al iniciar sesión. Inténtalo de nuevo." }
-    } finally {
-      setLoading(false)
+      return { success: false, error: "Error de conexión" }
     }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("cmg_user_id")
+    localStorage.removeItem("cmg_user")
   }
 
-  const value = {
-    user,
-    login,
-    logout,
-    loading,
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
@@ -85,4 +59,169 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
+}
+
+// Permission helper functions
+export function canApproveVacations(rol?: string): boolean {
+  return rol === "admin" || rol === "jefe_taller"
+}
+
+export function canRequestVacations(rol?: string): boolean {
+  return !!rol // Any authenticated user can request vacations
+}
+
+export function canManageUsers(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canViewAllWorkOrders(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canCreateWorkOrders(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canEditWorkOrders(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canValidateWorkOrders(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canManageSettings(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canCreateAppointments(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canManageClients(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canManageMaterials(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canViewPersonnel(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canManagePersonnel(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canCreatePersonnel(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canEditPersonnel(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canDeletePersonnel(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canViewReports(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canGenerateReports(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canViewAllTimeTracking(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canManageTimeTracking(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canManageVacations(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canViewAllVacations(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canManageSchedule(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canViewSchedule(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion", "tecnico"].includes(rol)
+}
+
+export function canManageVehicles(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canViewVehicles(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion", "tecnico"].includes(rol)
+}
+
+export function canViewMaterials(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion", "tecnico"].includes(rol)
+}
+
+export function canCreateMaterials(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canEditMaterials(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canDeleteMaterials(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canViewClients(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion", "tecnico"].includes(rol)
+}
+
+export function canCreateClients(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+export function canEditClients(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canDeleteClients(rol?: string): boolean {
+  return rol === "admin"
+}
+
+export function canImportData(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller"].includes(rol)
+}
+
+export function canExportData(rol?: string): boolean {
+  return !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
+}
+
+// Helper function to check if user has admin privileges
+export function isAdmin(rol?: string): boolean {
+  return rol === "admin"
+}
+
+// Helper function to check if user is a manager
+export function isManager(rol?: string): boolean {
+  return rol === "jefe_taller"
+}
+
+// Helper function to check if user is a technician
+export function isTechnician(rol?: string): boolean {
+  return rol === "tecnico"
+}
+
+// Helper function to check if user is reception staff
+export function isReception(rol?: string): boolean {
+  return rol === "recepcion"
 }

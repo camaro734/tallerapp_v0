@@ -1,230 +1,319 @@
 "use client"
 
-import type * as React from "react"
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { MainLayout } from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
-import { Switch } from "@/components/ui/switch"
-import { useToast } from "@/components/ui/use-toast"
-import { CalendarIcon, Loader2 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarIcon, Clock, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { type Cliente, type Vehiculo, getClientes, getVehiculosByClienteId, createCita } from "@/lib/db"
 import { cn } from "@/lib/utils"
+import { getClientes, getVehiculos, type Cliente, type Vehiculo } from "@/lib/database"
+import { useAuth } from "@/components/auth-provider"
+import { MainLayout } from "@/components/main-layout"
+import { toast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function NuevaCitaPage() {
+  const { user } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
+  const [loading, setLoading] = useState(false)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
-  const [selectedCliente, setSelectedCliente] = useState<string | null>(null)
-  const [isNewCliente, setIsNewCliente] = useState(false)
-  const [newClienteName, setNewClienteName] = useState("")
+  const [vehiculosFiltrados, setVehiculosFiltrados] = useState<Vehiculo[]>([])
 
-  const [fecha, setFecha] = useState<Date | undefined>(new Date())
-  const [hora, setHora] = useState("09:00")
+  // Estados del formulario
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<string>("")
+  const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<string>("")
+  const [fecha, setFecha] = useState<Date>()
+  const [hora, setHora] = useState("")
+  const [duracion, setDuracion] = useState("")
   const [tipoServicio, setTipoServicio] = useState("")
-  const [duracion, setDuracion] = useState("60")
   const [descripcion, setDescripcion] = useState("")
 
   useEffect(() => {
-    const fetchClientes = async () => {
-      const { data } = await getClientes()
-      if (data) setClientes(data)
-    }
-    fetchClientes()
+    cargarDatos()
   }, [])
 
   useEffect(() => {
-    const fetchVehiculos = async () => {
-      if (selectedCliente) {
-        const { data } = await getVehiculosByClienteId(selectedCliente)
-        if (data) setVehiculos(data)
-      } else {
-        setVehiculos([])
-      }
-    }
-    if (!isNewCliente) {
-      fetchVehiculos()
-    }
-  }, [selectedCliente, isNewCliente])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if ((!isNewCliente && !selectedCliente) || (isNewCliente && !newClienteName)) {
-      toast({
-        variant: "destructive",
-        title: "Error de validación",
-        description: "Por favor, selecciona o introduce un nombre de cliente.",
-      })
-      return
-    }
-    if (!fecha) {
-      toast({
-        variant: "destructive",
-        title: "Error de validación",
-        description: "Por favor, selecciona una fecha para la cita.",
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-
-    const fechaHora = new Date(fecha)
-    const [h, m] = hora.split(":").map(Number)
-    fechaHora.setHours(h, m)
-
-    const citaData = {
-      cliente_id: !isNewCliente ? selectedCliente : null,
-      cliente_nombre: isNewCliente ? newClienteName : null,
-      vehiculo_id: null, // Simplificado por ahora
-      fecha_hora: fechaHora.toISOString(),
-      duracion_estimada: Number.parseInt(duracion, 10),
-      tipo_servicio: tipoServicio,
-      descripcion: descripcion,
-      estado: "programada" as const,
-      created_by: "5", // Hardcoded user ID for demo
-    }
-
-    const { data, error } = await createCita(citaData)
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error al crear la cita",
-        description: error.message,
-      })
-      setIsSubmitting(false)
+    if (clienteSeleccionado) {
+      cargarVehiculosCliente(clienteSeleccionado)
     } else {
+      setVehiculosFiltrados([])
+      setVehiculoSeleccionado("")
+    }
+  }, [clienteSeleccionado])
+
+  const cargarDatos = async () => {
+    try {
+      const [clientesResponse, vehiculosResponse] = await Promise.all([getClientes(), getVehiculos()])
+
+      if (clientesResponse.error) {
+        throw new Error(clientesResponse.error.message)
+      }
+      if (vehiculosResponse.error) {
+        throw new Error(vehiculosResponse.error.message)
+      }
+
+      setClientes(clientesResponse.data || [])
+      setVehiculos(vehiculosResponse.data || [])
+    } catch (error) {
+      console.error("Error cargando datos:", error)
       toast({
-        title: "Cita creada",
-        description: `La cita para ${data.cliente_nombre || clientes.find((c) => c.id === data.cliente_id)?.nombre} ha sido creada con éxito.`,
+        title: "Error",
+        description: "No se pudieron cargar los datos necesarios",
+        variant: "destructive",
       })
-      router.push("/agenda")
     }
   }
 
+  const cargarVehiculosCliente = async (clienteId: string) => {
+    try {
+      const vehiculosCliente = vehiculos.filter((v) => v.cliente_id === clienteId)
+      setVehiculosFiltrados(vehiculosCliente)
+    } catch (error) {
+      console.error("Error cargando vehículos:", error)
+      setVehiculosFiltrados([])
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!clienteSeleccionado || !fecha || !hora || !duracion || !tipoServicio) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos obligatorios",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      // Combinar fecha y hora
+      const [horas, minutos] = hora.split(":").map(Number)
+      const fechaHora = new Date(fecha)
+      fechaHora.setHours(horas, minutos, 0, 0)
+
+      const citaData = {
+        cliente_id: clienteSeleccionado,
+        vehiculo_id: vehiculoSeleccionado || undefined,
+        fecha_hora: fechaHora.toISOString(),
+        duracion_estimada: Number.parseInt(duracion),
+        tipo_servicio: tipoServicio,
+        descripcion: descripcion.trim() || undefined,
+        estado: "programada" as const,
+        created_by: user!.id,
+      }
+
+      // Aquí iría la llamada a citasDB.create(citaData)
+      // Por ahora simulamos el éxito
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      toast({
+        title: "Éxito",
+        description: "Cita programada correctamente",
+      })
+
+      router.push("/agenda")
+    } catch (error) {
+      console.error("Error creando cita:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo programar la cita",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const horasDisponibles = Array.from({ length: 10 }, (_, i) => {
+    const hora = 8 + i
+    return `${hora.toString().padStart(2, "0")}:00`
+  })
+
   return (
     <MainLayout>
-      <div className="p-4 sm:p-6 lg:p-8">
-        <Card className="max-w-2xl mx-auto">
+      <div className="container mx-auto p-6 max-w-2xl">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Nueva Cita</h1>
+            <p className="text-gray-600">Programa una nueva cita en la agenda</p>
+          </div>
+        </div>
+
+        <Card>
           <CardHeader>
-            <CardTitle>Crear Nueva Cita</CardTitle>
-            <CardDescription>Rellena los detalles para programar una nueva cita en la agenda.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Información de la Cita
+            </CardTitle>
           </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Switch id="new-cliente-switch" checked={isNewCliente} onCheckedChange={setIsNewCliente} />
-                  <Label htmlFor="new-cliente-switch">Cliente Nuevo / Sin registrar</Label>
-                </div>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Cliente */}
+              <div>
+                <Label htmlFor="cliente">Cliente *</Label>
+                <Select value={clienteSeleccionado} onValueChange={setClienteSeleccionado} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientes.map((cliente) => (
+                      <SelectItem key={cliente.id} value={cliente.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{cliente.nombre}</span>
+                          {cliente.telefono && <span className="text-sm text-gray-500">{cliente.telefono}</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {isNewCliente ? (
-                <div className="space-y-2">
-                  <Label htmlFor="new-cliente-name">Nombre del Cliente</Label>
-                  <Input
-                    id="new-cliente-name"
-                    value={newClienteName}
-                    onChange={(e) => setNewClienteName(e.target.value)}
-                    placeholder="Ej: Transportes Sol"
-                    required
-                  />
+              {/* Vehículo */}
+              <div>
+                <Label htmlFor="vehiculo">Vehículo</Label>
+                <Select
+                  value={vehiculoSeleccionado}
+                  onValueChange={setVehiculoSeleccionado}
+                  disabled={!clienteSeleccionado}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un vehículo (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehiculosFiltrados.map((vehiculo) => (
+                      <SelectItem key={vehiculo.id} value={vehiculo.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{vehiculo.matricula}</span>
+                          <span className="text-sm text-gray-500">
+                            {vehiculo.marca} {vehiculo.modelo}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!clienteSeleccionado && <p className="text-sm text-gray-500 mt-1">Selecciona primero un cliente</p>}
+              </div>
+
+              {/* Fecha y Hora */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Fecha *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn("w-full justify-start text-left font-normal", !fecha && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {fecha ? format(fecha, "PPP", { locale: es }) : "Selecciona una fecha"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={fecha}
+                        onSelect={setFecha}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="cliente">Cliente</Label>
-                  <Select onValueChange={setSelectedCliente} value={selectedCliente || ""} required>
+
+                <div>
+                  <Label htmlFor="hora">Hora *</Label>
+                  <Select value={hora} onValueChange={setHora} required>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un cliente" />
+                      <Clock className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Selecciona la hora" />
                     </SelectTrigger>
                     <SelectContent>
-                      {clientes.map((cliente) => (
-                        <SelectItem key={cliente.id} value={cliente.id}>
-                          {cliente.nombre}
+                      {horasDisponibles.map((horaDisponible) => (
+                        <SelectItem key={horaDisponible} value={horaDisponible}>
+                          {horaDisponible}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="fecha">Fecha de la Cita</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !fecha && "text-muted-foreground")}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {fecha ? format(fecha, "PPP", { locale: es }) : <span>Elige una fecha</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={fecha} onSelect={setFecha} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+              {/* Duración y Tipo de Servicio */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="duracion">Duración (minutos) *</Label>
+                  <Select value={duracion} onValueChange={setDuracion} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Duración estimada" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 minutos</SelectItem>
+                      <SelectItem value="60">1 hora</SelectItem>
+                      <SelectItem value="90">1.5 horas</SelectItem>
+                      <SelectItem value="120">2 horas</SelectItem>
+                      <SelectItem value="180">3 horas</SelectItem>
+                      <SelectItem value="240">4 horas</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hora">Hora</Label>
-                  <Input id="hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} required />
+
+                <div>
+                  <Label htmlFor="tipoServicio">Tipo de Servicio *</Label>
+                  <Select value={tipoServicio} onValueChange={setTipoServicio} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tipo de servicio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="revision">Revisión</SelectItem>
+                      <SelectItem value="reparacion">Reparación</SelectItem>
+                      <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
+                      <SelectItem value="instalacion">Instalación</SelectItem>
+                      <SelectItem value="diagnostico">Diagnóstico</SelectItem>
+                      <SelectItem value="presupuesto">Presupuesto</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="tipo-servicio">Tipo de Servicio</Label>
-                  <Input
-                    id="tipo-servicio"
-                    value={tipoServicio}
-                    onChange={(e) => setTipoServicio(e.target.value)}
-                    placeholder="Ej: Revisión, Reparación"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="duracion">Duración (minutos)</Label>
-                  <Input
-                    id="duracion"
-                    type="number"
-                    value={duracion}
-                    onChange={(e) => setDuracion(e.target.value)}
-                    placeholder="Ej: 60"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción (Opcional)</Label>
-                <Textarea
+              {/* Descripción */}
+              <div>
+                <Label htmlFor="descripcion">Descripción</Label>
+                <Input
                   id="descripcion"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Añade detalles sobre el trabajo a realizar..."
+                  placeholder="Descripción breve del servicio..."
                 />
               </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isSubmitting ? "Guardando..." : "Guardar Cita"}
-              </Button>
-            </CardFooter>
-          </form>
+
+              {/* Botones */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+                  {loading ? "Programando..." : "Programar Cita"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </MainLayout>

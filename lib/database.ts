@@ -59,19 +59,33 @@ export interface ParteTrabajo {
   vehiculo_serie?: string | null
   descripcion: string
   tecnico_asignado?: string | null
+  tecnico_id?: string | null
   tipo_trabajo?: string | null
   prioridad?: string | null
-  estado: "pendiente" | "en_progreso" | "pausado" | "completado" | "cancelado"
+  estado: "pendiente" | "en_curso" | "pausado" | "completado" | "cancelado"
   fecha_creacion: string
   fecha_inicio?: string | null
   fecha_fin?: string | null
   tiempo_total?: number | null
+  horas_estimadas?: number | null
+  horas_reales?: number | null
+  horas_facturables?: number | null
+  trabajo_realizado?: string | null
+  materiales_utilizados?: Array<{ id: string; nombre: string; cantidad: number }>
+  descripcion_materiales?: string | null
+  validado?: boolean
+  fecha_validacion?: string | null
+  validado_por?: string | null
   created_by: string
   firma_cliente?: string | null
   dni_cliente?: string | null
+  fecha_firma?: string | null
   fotos_adjuntas?: FotoAdjunta[]
   created_at: string
   updated_at: string
+  cliente?: Cliente
+  vehiculo?: Vehiculo
+  tecnico?: Usuario
 }
 
 export interface Personal {
@@ -124,11 +138,62 @@ export interface Material {
   stock_actual: number
   stock_minimo: number
   precio_unitario: number
+  unidad: string
   proveedor?: string | null
   ubicacion?: string | null
   created_at: string
   updated_at: string
 }
+
+// Add missing Cita interface and data
+export interface Cita {
+  id: string
+  cliente_id: string
+  vehiculo_id?: string | null
+  tecnico_id?: string | null
+  fecha_hora: string
+  descripcion: string
+  estado: "programada" | "en_curso" | "completada" | "cancelada"
+  tipo: "revision" | "reparacion" | "mantenimiento" | "instalacion"
+  duracion_estimada?: number | null
+  observaciones?: string | null
+  created_at: string
+  updated_at: string
+  cliente?: Cliente
+  vehiculo?: Vehiculo
+  tecnico?: Usuario
+}
+
+export const citas: Cita[] = [
+  {
+    id: "1",
+    cliente_id: "1",
+    vehiculo_id: "1",
+    tecnico_id: "user1",
+    fecha_hora: "2024-01-26T09:00:00Z",
+    descripcion: "Revisión programada sistema hidráulico",
+    estado: "programada",
+    tipo: "revision",
+    duracion_estimada: 120,
+    observaciones: "Cliente solicita revisión completa",
+    created_at: "2024-01-25T10:00:00Z",
+    updated_at: "2024-01-25T10:00:00Z",
+  },
+  {
+    id: "2",
+    cliente_id: "2",
+    vehiculo_id: "3",
+    tecnico_id: "user2",
+    fecha_hora: "2024-01-26T14:00:00Z",
+    descripcion: "Reparación urgente plataforma",
+    estado: "programada",
+    tipo: "reparacion",
+    duracion_estimada: 180,
+    observaciones: "Problema reportado por cliente",
+    created_at: "2024-01-25T11:30:00Z",
+    updated_at: "2024-01-25T11:30:00Z",
+  },
+]
 
 // Mock users data
 export const usuarios: Usuario[] = [
@@ -286,17 +351,32 @@ export const partesTrabajo: ParteTrabajo[] = [
     vehiculo_serie: "123456",
     descripcion: "Revisión sistema hidráulico de grúa",
     tecnico_asignado: "Juan Pérez",
+    tecnico_id: "user1",
     tipo_trabajo: "Mantenimiento",
-    prioridad: "Media",
+    prioridad: "media",
     estado: "completado",
     fecha_creacion: "2024-01-20T08:00:00Z",
     fecha_inicio: "2024-01-20T09:00:00Z",
     fecha_fin: "2024-01-20T12:00:00Z",
     tiempo_total: 180,
+    horas_estimadas: 3,
+    horas_reales: 3.2,
+    horas_facturables: 3.0,
+    trabajo_realizado:
+      "Se realizó revisión completa del sistema hidráulico. Se cambió aceite y filtros. Se ajustaron presiones según especificaciones del fabricante.",
+    materiales_utilizados: [
+      { id: "1", nombre: "HID-001 - Aceite hidráulico ISO 46", cantidad: 20 },
+      { id: "2", nombre: "FIL-002 - Filtro hidráulico", cantidad: 2 },
+    ],
+    descripcion_materiales: "Aceite hidráulico de alta calidad y filtros originales HIAB",
+    validado: true,
+    fecha_validacion: "2024-01-20T13:00:00Z",
+    validado_por: "jefe1",
     created_by: "user1",
     firma_cliente:
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
     dni_cliente: "12345678A",
+    fecha_firma: "2024-01-20T12:30:00Z",
     fotos_adjuntas: [
       {
         id: "foto1",
@@ -321,13 +401,16 @@ export const partesTrabajo: ParteTrabajo[] = [
     vehiculo_serie: "789012",
     descripcion: "Reparación plataforma elevadora",
     tecnico_asignado: "María González",
+    tecnico_id: "user2",
     tipo_trabajo: "Reparación",
-    prioridad: "Alta",
-    estado: "en_progreso",
+    prioridad: "alta",
+    estado: "en_curso",
     fecha_creacion: "2024-01-21T10:00:00Z",
     fecha_inicio: "2024-01-21T11:00:00Z",
     fecha_fin: null,
     tiempo_total: null,
+    horas_estimadas: 4,
+    horas_reales: 2.5,
     created_by: "user2",
     firma_cliente: null,
     dni_cliente: null,
@@ -369,6 +452,7 @@ export const partesTrabajo: ParteTrabajo[] = [
     fecha_inicio: null,
     fecha_fin: null,
     tiempo_total: null,
+    horas_estimadas: 6,
     created_by: "user1",
     firma_cliente: null,
     dni_cliente: null,
@@ -494,6 +578,7 @@ export const materiales: Material[] = [
     stock_actual: 25,
     stock_minimo: 5,
     precio_unitario: 45.5,
+    unidad: "litros",
     proveedor: "Hidráulicos del Norte S.L.",
     ubicacion: "Almacén A - Estantería 1",
     created_at: "2024-01-10T10:00:00Z",
@@ -508,6 +593,7 @@ export const materiales: Material[] = [
     stock_actual: 8,
     stock_minimo: 3,
     precio_unitario: 28.75,
+    unidad: "unidades",
     proveedor: "Sellos Industriales Madrid",
     ubicacion: "Almacén B - Cajón 15",
     created_at: "2024-01-12T11:15:00Z",
@@ -522,6 +608,7 @@ export const materiales: Material[] = [
     stock_actual: 2,
     stock_minimo: 1,
     precio_unitario: 185.0,
+    unidad: "unidades",
     proveedor: "Componentes Hidráulicos S.A.",
     ubicacion: "Almacén A - Estantería 3",
     created_at: "2024-01-08T14:20:00Z",
@@ -649,7 +736,7 @@ export const searchMateriales = async (term: string) => {
 
 export const getMaterialesByParteId = async (parteId: string) => {
   const parte = partesTrabajo.find((p) => p.id === parteId)
-  return { data: parte?.fotos_adjuntas || [], error: null }
+  return { data: parte?.materiales_utilizados || [], error: null }
 }
 
 // Work Orders functions
@@ -657,13 +744,13 @@ export const getAllPartes = async () => {
   const data = partesTrabajo.map((pt) => {
     const cliente = clientes.find((c) => c.id === pt.cliente_id)
     const vehiculo = vehiculos.find((v) => v.id === pt.vehiculo_id)
-    const tecnico = usuarios.find((u) => u.id === pt.tecnico_asignado)
+    const tecnico = usuarios.find((u) => u.id === pt.tecnico_id)
     return {
       ...pt,
       cliente,
       vehiculo,
       tecnico,
-      cliente_nombre: cliente?.nombre,
+      cliente_nombre: pt.cliente_nombre || cliente?.nombre,
     }
   })
   return { data, error: null }
@@ -675,7 +762,7 @@ export const getParteById = async (id: string) => {
 
   const cliente = clientes.find((c) => c.id === parte.cliente_id)
   const vehiculo = vehiculos.find((v) => v.id === parte.vehiculo_id)
-  const tecnico = usuarios.find((u) => u.id === parte.tecnico_asignado)
+  const tecnico = usuarios.find((u) => u.id === parte.tecnico_id)
   const data = { ...parte, cliente, vehiculo, tecnico }
   return { data, error: null }
 }
@@ -924,6 +1011,27 @@ export const canManageMaterials = (rol?: string): boolean =>
 // Connection status
 export const isSupabaseReady = () => {
   return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+}
+
+// Add the missing exports that are being imported elsewhere
+
+// Add these exports at the end of the file:
+export const getPersonal = async () => ({ data: personal, error: null })
+export const getFichajes = async () => ({ data: fichajes, error: null })
+export const getVacaciones = async () => ({ data: vacaciones, error: null })
+export const getMateriales = async () => ({ data: materiales, error: null })
+export const getPartesTrabajo = async () => ({ data: partesTrabajo, error: null })
+export const getCitas = async () => ({ data: citas, error: null })
+
+export const createCita = async (data: Omit<Cita, "id" | "created_at" | "updated_at">): Promise<Cita> => {
+  const newCita: Cita = {
+    ...data,
+    id: Math.random().toString(36).substr(2, 9),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  citas.push(newCita)
+  return newCita
 }
 
 // Exportar las colecciones como objetos para compatibilidad con código existente

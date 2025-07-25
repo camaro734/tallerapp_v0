@@ -26,7 +26,7 @@ import { Plus, Search, Download, Upload, Edit, Trash2, Loader2 } from "lucide-re
 import { toast } from "sonner"
 import { CSVImporter } from "@/components/csv-importer"
 import { useAuth } from "@/components/auth-provider"
-import { canManageClients, canImportData } from "@/lib/db"
+import { canManageClients, canImportData } from "@/lib/supabase"
 import { LoginForm } from "@/components/login-form"
 import * as db from "@/lib/db"
 import type { Cliente } from "@/lib/db"
@@ -65,7 +65,7 @@ export default function ClientesPage() {
       }
       setIsLoading(false)
     }
-    if (!authLoading && user && canManageClients(user.rol)) {
+    if (!authLoading && user && canManageClients(user)) {
       fetchClientes()
     }
   }, [authLoading, user])
@@ -107,9 +107,7 @@ export default function ClientesPage() {
       const { error } = await db.updateCliente(editingCliente.id, formData)
       if (!error) {
         setClientes((prev) =>
-          prev.map((cliente) =>
-            cliente.id === editingCliente.id ? { ...cliente, ...formData, id: cliente.id } : cliente,
-          ),
+          prev.map((cliente) => (cliente.id === editingCliente.id ? { ...cliente, ...formData } : cliente)),
         )
         toast.success("Cliente actualizado correctamente")
       } else {
@@ -118,11 +116,13 @@ export default function ClientesPage() {
       }
     } else {
       // Crear nuevo cliente
-      const { data: nuevoCliente, error } = await db.createCliente({
+      const nuevoCliente: Cliente = {
+        id: Date.now().toString(),
         ...formData,
-        updated_at: new Date().toISOString(),
-      })
-      if (nuevoCliente) {
+        fecha_creacion: new Date().toISOString().split("T")[0],
+      }
+      const { error } = await db.createCliente(nuevoCliente)
+      if (!error) {
         setClientes((prev) => [...prev, nuevoCliente])
         toast.success("Cliente creado correctamente")
       } else {
@@ -139,11 +139,11 @@ export default function ClientesPage() {
     setEditingCliente(cliente)
     setFormData({
       nombre: cliente.nombre,
-      cif: cliente.cif || "",
-      telefono: cliente.telefono || "",
-      email: cliente.email || "",
-      direccion: cliente.direccion || "",
-      contacto_principal: cliente.contacto_principal || "",
+      cif: cliente.cif,
+      telefono: cliente.telefono,
+      email: cliente.email,
+      direccion: cliente.direccion,
+      contacto_principal: cliente.contacto_principal,
       observaciones: cliente.observaciones || "",
       activo: cliente.activo,
     })
@@ -183,25 +183,26 @@ export default function ClientesPage() {
   }
 
   const handleImport = (data: any[]) => {
-    data.forEach(async (row) => {
-      const nuevoClienteData = {
-        nombre: row.nombre || "",
-        cif: row.cif || "",
-        telefono: row.telefono || "",
-        email: row.email || "",
-        direccion: row.direccion || "",
-        contacto_principal: row.contacto_principal || "",
-        observaciones: row.observaciones || "",
-        activo: row.activo === "true" || row.activo === true,
-        updated_at: new Date().toISOString(),
-      }
-      const { data: nuevoCliente, error } = await db.createCliente(nuevoClienteData)
-      if (nuevoCliente) {
-        setClientes((prev) => [...prev, nuevoCliente])
-        toast.success(`Cliente ${nuevoCliente.nombre} importado correctamente`)
+    const nuevosClientes: Cliente[] = data.map((row, index) => ({
+      id: (Date.now() + index).toString(),
+      nombre: row.nombre || "",
+      cif: row.cif || "",
+      telefono: row.telefono || "",
+      email: row.email || "",
+      direccion: row.direccion || "",
+      contacto_principal: row.contacto_principal || "",
+      observaciones: row.observaciones || "",
+      activo: row.activo === "true" || row.activo === true,
+      fecha_creacion: new Date().toISOString().split("T")[0],
+    }))
+
+    nuevosClientes.forEach(async (cliente) => {
+      const { error } = await db.createCliente(cliente)
+      if (!error) {
+        toast.success("Cliente importado correctamente")
       } else {
         console.error("Error importing client:", error)
-        toast.error("Error al importar un cliente")
+        toast.error("Error al importar el cliente")
       }
     })
 
@@ -233,7 +234,7 @@ export default function ClientesPage() {
     return <LoginForm />
   }
 
-  if (!canManageClients(user.rol)) {
+  if (!canManageClients(user)) {
     return (
       <MainLayout>
         <div className="p-6">
@@ -255,7 +256,7 @@ export default function ClientesPage() {
             <p className="text-muted-foreground">Gestión de clientes y contactos comerciales</p>
           </div>
           <div className="flex gap-2">
-            {canImportData(user.rol) && (
+            {canImportData(user) && (
               <Button variant="outline" onClick={() => setShowImporter(true)}>
                 <Upload className="mr-2 h-4 w-4" />
                 Importar
@@ -483,7 +484,7 @@ export default function ClientesPage() {
         </Dialog>
 
         {/* Importador CSV */}
-        {showImporter && canImportData(user.rol) && (
+        {showImporter && canImportData(user) && (
           <CSVImporter
             onImport={handleImport}
             onClose={() => setShowImporter(false)}
