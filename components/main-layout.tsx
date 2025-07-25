@@ -159,12 +159,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               <User className="h-3 w-3" />
               <span className="truncate max-w-20">{user.nombre.split(" ")[0]}</span>
-              <Badge
-                variant={isPresent ? "default" : "secondary"}
-                className={`h-4 text-xs ${isPresent ? "bg-green-500" : "bg-gray-500"}`}
-              >
-                {isPresent ? "Presente" : "Ausente"}
-              </Badge>
             </div>
 
             <div className="flex items-center gap-2">
