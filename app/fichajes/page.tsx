@@ -1,113 +1,112 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/components/auth-provider"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Clock, ClockIcon as ClockIn, ClockIcon as ClockOut, Calendar, User, MapPin } from "lucide-react"
+import { createFichaje, getFichajesUsuario, getEstadoPresencia } from "@/lib/db"
 import { toast } from "@/hooks/use-toast"
-import { Clock, User, Play, Square, Loader2, Calendar, FileText } from "lucide-react"
-import { getFichajesUsuario, getUltimoFichajePresencia, createFichajePresencia } from "@/lib/db"
 
 interface Fichaje {
   id: string
-  fecha_hora: string
+  tipo: "presencia" | "trabajo"
   tipo_fichaje: "entrada" | "salida"
-  usuario_id: string
-  usuario?: {
-    nombre: string
-  }
+  fecha_hora: string
+  observaciones?: string
+  parte_trabajo_id?: string
 }
 
 export default function FichajesPage() {
-  const { user } = useAuth()
   const [fichajes, setFichajes] = useState<Fichaje[]>([])
-  const [estadoPresencia, setEstadoPresencia] = useState<"entrada" | "salida" | null>(null)
+  const [estadoPresencia, setEstadoPresencia] = useState<"presente" | "ausente">("ausente")
   const [isLoading, setIsLoading] = useState(false)
-  const [ultimoFichaje, setUltimoFichaje] = useState<string | null>(null)
+  const [loadingFichajes, setLoadingFichajes] = useState(true)
 
-  useEffect(() => {
-    if (user) {
-      cargarFichajes()
-      cargarEstadoPresencia()
-    }
-  }, [user])
-
-  // Escuchar eventos de fichaje desde otros componentes
-  useEffect(() => {
-    const handleFichajeUpdate = () => {
-      if (user) {
-        cargarFichajes()
-        cargarEstadoPresencia()
-      }
-    }
-
-    window.addEventListener("fichajeUpdated", handleFichajeUpdate)
-    return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
-  }, [user])
+  // Usuario mock - en producción vendría del contexto de autenticación
+  const usuario = {
+    id: "11111111-1111-1111-1111-111111111111",
+    nombre: "Administrador",
+    apellidos: "Sistema",
+  }
 
   const cargarFichajes = async () => {
-    if (!user) return
-
+    setLoadingFichajes(true)
     try {
-      const { data } = await getFichajesUsuario(user.id)
-      if (data) {
-        setFichajes(data)
-      }
+      const hoy = new Date().toISOString().split("T")[0]
+      const fichajesData = await getFichajesUsuario(usuario.id, hoy)
+      setFichajes(fichajesData)
     } catch (error) {
       console.error("Error cargando fichajes:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los fichajes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingFichajes(false)
     }
   }
 
   const cargarEstadoPresencia = async () => {
-    if (!user) return
-
     try {
-      const { data: fichaje } = await getUltimoFichajePresencia(user.id)
-      if (fichaje) {
-        setEstadoPresencia(fichaje.tipo_fichaje)
-        setUltimoFichaje(fichaje.fecha_hora)
-      } else {
-        setEstadoPresencia("salida") // Por defecto ausente
-      }
+      const estado = await getEstadoPresencia(usuario.id)
+      setEstadoPresencia(estado)
     } catch (error) {
       console.error("Error cargando estado de presencia:", error)
     }
   }
 
-  const handleFichajePresencia = async (tipo: "entrada" | "salida") => {
-    if (!user) return
+  useEffect(() => {
+    cargarFichajes()
+    cargarEstadoPresencia()
 
+    // Escuchar eventos de fichaje para sincronizar
+    const handleFichajeUpdate = () => {
+      cargarFichajes()
+      cargarEstadoPresencia()
+    }
+
+    window.addEventListener("fichajeUpdated", handleFichajeUpdate)
+    return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
+  }, [])
+
+  const handleFichaje = async (tipoFichaje: "entrada" | "salida") => {
     setIsLoading(true)
-
     try {
-      const { data, error } = await createFichajePresencia(user.id, tipo)
-
-      if (error) {
-        throw new Error(error.message || "Error en el fichaje")
-      }
-
-      setEstadoPresencia(tipo)
-      setUltimoFichaje(new Date().toISOString())
-      await cargarFichajes()
-
-      toast({
-        title: "Fichaje registrado",
-        description: `Has fichado ${tipo === "entrada" ? "la entrada" : "la salida"} correctamente`,
+      const result = await createFichaje({
+        usuario_id: usuario.id,
+        tipo: "presencia",
+        tipo_fichaje: tipoFichaje,
+        observaciones: `Fichaje de ${tipoFichaje} desde página de fichajes`,
       })
 
-      // Disparar evento para sincronizar con otros componentes
-      window.dispatchEvent(
-        new CustomEvent("fichajeUpdated", {
-          detail: { tipo, timestamp: new Date().toISOString() },
-        }),
-      )
+      if (result.success) {
+        setEstadoPresencia(tipoFichaje === "entrada" ? "presente" : "ausente")
+
+        // Disparar evento para sincronizar otros componentes
+        window.dispatchEvent(new CustomEvent("fichajeUpdated"))
+
+        toast({
+          title: "Fichaje registrado",
+          description: `${tipoFichaje === "entrada" ? "Entrada" : "Salida"} registrada correctamente`,
+        })
+
+        // Recargar fichajes
+        cargarFichajes()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "No se pudo registrar el fichaje",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
-      console.error("Error en fichaje de presencia:", error)
+      console.error("Error en fichaje:", error)
       toast({
         title: "Error",
-        description: "No se pudo registrar el fichaje de presencia",
+        description: "Error al registrar el fichaje",
         variant: "destructive",
       })
     } finally {
@@ -115,135 +114,172 @@ export default function FichajesPage() {
     }
   }
 
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <p>Debes iniciar sesión para ver los fichajes</p>
-        </div>
-      </div>
-    )
+  const formatearFecha = (fechaHora: string) => {
+    const fecha = new Date(fechaHora)
+    return {
+      fecha: fecha.toLocaleDateString("es-ES"),
+      hora: fecha.toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    }
   }
 
-  const estaPresente = estadoPresencia === "entrada"
+  const getUltimoFichaje = () => {
+    if (fichajes.length === 0) return null
+    return fichajes[0]
+  }
+
+  const ultimoFichaje = getUltimoFichaje()
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Control de Fichajes</h1>
-          <p className="text-gray-600 mt-1">Gestiona tu tiempo de trabajo y presencia</p>
+          <h1 className="text-3xl font-bold tracking-tight">Control de Fichajes</h1>
+          <p className="text-muted-foreground">Gestiona tu horario de trabajo y presencia</p>
         </div>
       </div>
 
-      {/* Control de Presencia */}
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            Control de Presencia
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-gray-400" />
-                <span className="font-medium">{user.nombre}</span>
-              </div>
-              {ultimoFichaje && (
-                <span className="text-sm text-gray-500">
-                  Último:{" "}
-                  {new Date(ultimoFichaje).toLocaleTimeString("es-ES", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              )}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Panel de Estado Actual */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Estado Actual
+            </CardTitle>
+            <CardDescription>Tu estado de presencia actual</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Estado:</span>
+              <Badge
+                variant={estadoPresencia === "presente" ? "default" : "secondary"}
+                className={estadoPresencia === "presente" ? "bg-green-500" : "bg-gray-500"}
+              >
+                {estadoPresencia === "presente" ? "Presente" : "Ausente"}
+              </Badge>
             </div>
 
+            {ultimoFichaje && (
+              <div className="space-y-2">
+                <Separator />
+                <div className="text-sm">
+                  <p className="font-medium">Último fichaje:</p>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {ultimoFichaje.tipo_fichaje === "entrada" ? "Entrada" : "Salida"} -{" "}
+                      {formatearFecha(ultimoFichaje.fecha_hora).hora}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Botones de fichaje sincronizados */}
             <div className="flex gap-2">
               <Button
-                onClick={() => handleFichajePresencia("entrada")}
-                disabled={isLoading || estaPresente}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => handleFichaje("entrada")}
+                disabled={isLoading || estadoPresencia === "presente"}
+                className="flex-1 bg-green-600 hover:bg-green-700"
               >
-                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                Fichar Entrada
+                <ClockIn className="h-4 w-4 mr-2" />
+                {isLoading ? "Fichando..." : "Fichar Entrada"}
               </Button>
+
               <Button
-                onClick={() => handleFichajePresencia("salida")}
-                disabled={isLoading || !estaPresente}
+                onClick={() => handleFichaje("salida")}
+                disabled={isLoading || estadoPresencia === "ausente"}
                 variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50"
+                className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
               >
-                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Square className="h-4 w-4 mr-2" />}
-                Fichar Salida
+                <ClockOut className="h-4 w-4 mr-2" />
+                {isLoading ? "Fichando..." : "Fichar Salida"}
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Historial de Fichajes */}
+        {/* Panel de Fichajes del Día */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Fichajes de Hoy
+            </CardTitle>
+            <CardDescription>Registro de entradas y salidas del día actual</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingFichajes ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : fichajes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No hay fichajes registrados hoy</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {fichajes.map((fichaje) => {
+                  const { fecha, hora } = formatearFecha(fichaje.fecha_hora)
+                  return (
+                    <div key={fichaje.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {fichaje.tipo_fichaje === "entrada" ? (
+                          <ClockIn className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <ClockOut className="h-4 w-4 text-red-600" />
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">
+                            {fichaje.tipo_fichaje === "entrada" ? "Entrada" : "Salida"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {fichaje.tipo === "trabajo" ? "Trabajo específico" : "Presencia general"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-sm">{hora}</p>
+                        <p className="text-xs text-muted-foreground">{fecha}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Información adicional */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
-            Historial de Fichajes
+            <MapPin className="h-5 w-5" />
+            Información del Sistema
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {fichajes.length === 0 ? (
-            <div className="text-center py-8">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No hay fichajes registrados</p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <h3 className="font-semibold text-blue-900">Ubicación</h3>
+              <p className="text-sm text-blue-700">Taller Principal</p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {fichajes.map((fichaje, index) => (
-                <div key={fichaje.id}>
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          fichaje.tipo_fichaje === "entrada" ? "bg-green-500" : "bg-red-500"
-                        }`}
-                      />
-                      <div>
-                        <p className="font-medium">{fichaje.tipo_fichaje === "entrada" ? "Entrada" : "Salida"}</p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(fichaje.fecha_hora).toLocaleDateString("es-ES", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-mono text-lg">
-                        {new Date(fichaje.fecha_hora).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                      <Badge
-                        variant={fichaje.tipo_fichaje === "entrada" ? "default" : "secondary"}
-                        className={
-                          fichaje.tipo_fichaje === "entrada" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                        }
-                      >
-                        {fichaje.tipo_fichaje === "entrada" ? "Entrada" : "Salida"}
-                      </Badge>
-                    </div>
-                  </div>
-                  {index < fichajes.length - 1 && <Separator />}
-                </div>
-              ))}
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <h3 className="font-semibold text-green-900">Turno</h3>
+              <p className="text-sm text-green-700">08:00 - 17:00</p>
             </div>
-          )}
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <h3 className="font-semibold text-purple-900">Departamento</h3>
+              <p className="text-sm text-purple-700">Administración</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -2,95 +2,93 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useAuth } from "@/components/auth-provider"
-import { Sidebar } from "@/components/sidebar"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { Menu, LogOut, User, Settings, Clock } from "lucide-react"
-import { createFichajePresencia, getUltimoFichajePresencia } from "@/lib/database"
-import { useEffect } from "react"
+import { LogOut, Settings, User, Clock, ClockIcon as ClockIn, ClockIcon as ClockOut } from "lucide-react"
+import { Sidebar } from "./sidebar"
+import { DatabaseStatus } from "./database-status"
+import { createFichaje, getEstadoPresencia } from "@/lib/db"
+import { toast } from "@/hooks/use-toast"
 
 interface MainLayoutProps {
   children: React.ReactNode
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { user, logout } = useAuth()
-  const { toast } = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isPresent, setIsPresent] = useState(false)
+  const [estadoPresencia, setEstadoPresencia] = useState<"presente" | "ausente">("ausente")
   const [isLoading, setIsLoading] = useState(false)
-  const [lastFichaje, setLastFichaje] = useState<any>(null)
+  const [showDatabaseStatus, setShowDatabaseStatus] = useState(false)
 
-  // Check current presence status
-  useEffect(() => {
-    const checkPresenceStatus = async () => {
-      if (!user) return
+  // Usuario mock - en producción vendría del contexto de autenticación
+  const usuario = {
+    id: "11111111-1111-1111-1111-111111111111",
+    nombre: "Administrador",
+    apellidos: "Sistema",
+    email: "admin@cmgplataformas.com",
+    rol: "admin",
+  }
 
-      try {
-        const { data } = await getUltimoFichajePresencia(user.id)
-        if (data) {
-          setLastFichaje(data)
-          setIsPresent(data.tipo_fichaje === "entrada")
-        }
-      } catch (error) {
-        console.error("Error checking presence:", error)
-      }
+  const cargarEstadoPresencia = async () => {
+    try {
+      const estado = await getEstadoPresencia(usuario.id)
+      setEstadoPresencia(estado)
+    } catch (error) {
+      console.error("Error cargando estado de presencia:", error)
     }
+  }
 
-    checkPresenceStatus()
+  useEffect(() => {
+    cargarEstadoPresencia()
 
-    // Listen for fichaje updates
+    // Escuchar eventos de fichaje para sincronizar
     const handleFichajeUpdate = () => {
-      checkPresenceStatus()
+      cargarEstadoPresencia()
     }
 
     window.addEventListener("fichajeUpdated", handleFichajeUpdate)
     return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
-  }, [user])
+  }, [])
 
-  const handleFichaje = async () => {
-    if (!user || isLoading) return
-
+  const handleFichaje = async (tipoFichaje: "entrada" | "salida") => {
     setIsLoading(true)
     try {
-      const tipoFichaje = isPresent ? "salida" : "entrada"
-      const { data, error } = await createFichajePresencia(user.id, tipoFichaje)
+      const result = await createFichaje({
+        usuario_id: usuario.id,
+        tipo: "presencia",
+        tipo_fichaje: tipoFichaje,
+        observaciones: `Fichaje de ${tipoFichaje} desde header`,
+      })
 
-      if (error) {
+      if (result.success) {
+        setEstadoPresencia(tipoFichaje === "entrada" ? "presente" : "ausente")
+
+        // Disparar evento para sincronizar otros componentes
+        window.dispatchEvent(new CustomEvent("fichajeUpdated"))
+
+        toast({
+          title: "Fichaje registrado",
+          description: `${tipoFichaje === "entrada" ? "Entrada" : "Salida"} registrada correctamente`,
+        })
+      } else {
         toast({
           title: "Error",
-          description: "No se pudo registrar el fichaje",
+          description: result.error || "No se pudo registrar el fichaje",
           variant: "destructive",
         })
-        return
       }
-
-      setIsPresent(!isPresent)
-      setLastFichaje(data)
-
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent("fichajeUpdated"))
-
-      toast({
-        title: "Fichaje registrado",
-        description: `${tipoFichaje === "entrada" ? "Entrada" : "Salida"} registrada correctamente`,
-      })
     } catch (error) {
+      console.error("Error en fichaje:", error)
       toast({
         title: "Error",
-        description: "Error al procesar el fichaje",
+        description: "Error al registrar el fichaje",
         variant: "destructive",
       })
     } finally {
@@ -98,84 +96,97 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }
 
-  if (!user) return null
+  const getFichajeButton = () => {
+    if (estadoPresencia === "ausente") {
+      return (
+        <Button
+          onClick={() => handleFichaje("entrada")}
+          disabled={isLoading}
+          size="sm"
+          className="bg-green-600 hover:bg-green-700"
+        >
+          <ClockIn className="h-4 w-4 mr-1" />
+          {isLoading ? "Fichando..." : "Entrada"}
+        </Button>
+      )
+    } else {
+      return (
+        <Button
+          onClick={() => handleFichaje("salida")}
+          disabled={isLoading}
+          size="sm"
+          variant="outline"
+          className="border-red-200 text-red-700 hover:bg-red-50"
+        >
+          <ClockOut className="h-4 w-4 mr-1" />
+          {isLoading ? "Fichando..." : "Salida"}
+        </Button>
+      )
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
 
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top header */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-                <Menu className="h-5 w-5" />
-              </Button>
-              <div className="hidden lg:block">
-                <h1 className="text-lg font-semibold text-gray-900">CMG Hidráulica</h1>
-              </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-xl font-semibold text-gray-900">CMG Hidráulica</h1>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Fichaje button */}
+            <div className="flex items-center space-x-4">
+              {/* Botón de fichaje sincronizado */}
+              {getFichajeButton()}
+
+              {/* Botón de estado de base de datos */}
               <Button
-                onClick={handleFichaje}
-                disabled={isLoading}
+                variant="ghost"
                 size="sm"
-                variant={isPresent ? "destructive" : "default"}
-                className="flex items-center gap-2"
+                onClick={() => setShowDatabaseStatus(!showDatabaseStatus)}
+                className="text-xs"
               >
-                <Clock className="h-4 w-4" />
-                {isLoading ? "..." : isPresent ? "Salida" : "Entrada"}
+                DB Status
               </Button>
 
-              {/* User menu */}
+              {/* Menú de usuario */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder-user.jpg" alt={user.nombre} />
-                      <AvatarFallback>
-                        {user.nombre.charAt(0)}
-                        {user.apellidos.charAt(0)}
+                      <AvatarFallback className="bg-blue-500 text-white">
+                        {usuario.nombre.charAt(0)}
+                        {usuario.apellidos.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user.nombre} {user.apellidos}
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">
+                        {usuario.nombre} {usuario.apellidos}
                       </p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                      <Badge variant="outline" className="w-fit text-xs">
-                        {user.rol === "admin" && "Administrador"}
-                        {user.rol === "jefe_taller" && "Jefe de Taller"}
-                        {user.rol === "tecnico" && "Técnico"}
-                        {user.rol === "recepcion" && "Recepción"}
-                      </Badge>
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">{usuario.email}</p>
                     </div>
-                  </DropdownMenuLabel>
+                  </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <User className="mr-2 h-4 w-4" />
                     <span>Perfil</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
+                    <Clock className="mr-2 h-4 w-4" />
+                    <span>Mis Fichajes</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Configuración</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout}>
+                  <DropdownMenuItem>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Cerrar sesión</span>
                   </DropdownMenuItem>
@@ -185,8 +196,15 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="relative">{children}</main>
+        {/* Database Status Panel */}
+        {showDatabaseStatus && (
+          <div className="bg-white border-b p-4">
+            <DatabaseStatus />
+          </div>
+        )}
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
     </div>
   )
