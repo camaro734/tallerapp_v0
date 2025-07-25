@@ -130,6 +130,16 @@ export interface Material {
   updated_at: string
 }
 
+export interface Cita {
+  id: string
+  usuario_id: string
+  fecha: string
+  hora: string
+  motivo: string
+  created_at: string
+  updated_at: string
+}
+
 // Mock users data
 export const usuarios: Usuario[] = [
   {
@@ -529,6 +539,27 @@ export const materiales: Material[] = [
   },
 ]
 
+export const citas: Cita[] = [
+  {
+    id: "1",
+    usuario_id: "user1",
+    fecha: "2024-02-01",
+    hora: "09:00",
+    motivo: "Revisión de vehículo",
+    created_at: "2024-01-20T08:00:00Z",
+    updated_at: "2024-01-20T08:00:00Z",
+  },
+  {
+    id: "2",
+    usuario_id: "user2",
+    fecha: "2024-02-02",
+    hora: "10:00",
+    motivo: "Mantenimiento preventivo",
+    created_at: "2024-01-21T09:00:00Z",
+    updated_at: "2024-01-21T09:00:00Z",
+  },
+]
+
 // Authentication function
 export const authenticateUser = async (email: string, password?: string) => {
   // Test credentials mapping
@@ -694,6 +725,10 @@ export const updateParte = (id: string, updates: Partial<ParteTrabajo>) => {
 export const getClientes = async () => ({ data: clientes, error: null })
 export const getVehiculos = async () => ({ data: vehiculos, error: null })
 
+export const getVehiculosByCliente = async (clienteId: string) => {
+  return { data: vehiculos.filter((v) => v.cliente_id === clienteId), error: null }
+}
+
 // CRUD operations
 export const createCliente = async (data: Omit<Cliente, "id" | "created_at" | "updated_at">): Promise<Cliente> => {
   const newCliente: Cliente = {
@@ -780,6 +815,17 @@ export const createMaterial = async (data: Omit<Material, "id" | "created_at" | 
   return newMaterial
 }
 
+export const createCita = async (data: Omit<Cita, "id" | "created_at" | "updated_at">): Promise<Cita> => {
+  const newCita: Cita = {
+    ...data,
+    id: Math.random().toString(36).substr(2, 9),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  citas.push(newCita)
+  return newCita
+}
+
 // Update operations
 export const updateParteTrabajo = async (id: string, data: Partial<ParteTrabajo>): Promise<ParteTrabajo | null> => {
   const index = partesTrabajo.findIndex((p) => p.id === id)
@@ -841,6 +887,18 @@ export const updateMaterial = async (id: string, data: Partial<Material>): Promi
   return materiales[index]
 }
 
+export const updateCita = async (id: string, data: Partial<Cita>): Promise<Cita | null> => {
+  const index = citas.findIndex((c) => c.id === id)
+  if (index === -1) return null
+
+  citas[index] = {
+    ...citas[index],
+    ...data,
+    updated_at: new Date().toISOString(),
+  }
+  return citas[index]
+}
+
 // Delete operations
 export const deleteCliente = async (id: string): Promise<boolean> => {
   const index = clientes.findIndex((c) => c.id === id)
@@ -898,6 +956,14 @@ export const deleteMaterial = async (id: string): Promise<boolean> => {
   return true
 }
 
+export const deleteCita = async (id: string): Promise<boolean> => {
+  const index = citas.findIndex((c) => c.id === id)
+  if (index === -1) return false
+
+  citas.splice(index, 1)
+  return true
+}
+
 // Permission checks
 export const canViewAllWorkOrders = (rol?: string): boolean =>
   !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
@@ -922,11 +988,147 @@ export const canManageMaterials = (rol?: string): boolean =>
   !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
 
 // Connection status
-export const isSupabaseReady = () => {
-  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+import { createClient } from "@supabase/supabase-js"
+
+// Supabase configuration
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
+
+// Check if Supabase is ready
+export function isSupabaseReady(): boolean {
+  return !!(supabaseUrl && supabaseAnonKey && supabase)
 }
 
-// Exportar las colecciones como objetos para compatibilidad con código existente
+// Re-export mock data for compatibility
+export const clientesDB = clientes
+export const vehiculosDB = vehiculos
+export const materialesDB = materiales
+export const partesTrabajoDB = partesTrabajo
+export const citasDB = citas
+
+// Supabase query functions (when ready)
+export async function getUsuariosFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("usuarios").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getClientesFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("clientes").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getVehiculosFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("vehiculos").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getMaterialesFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("materiales").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getPartesTrabajoFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("partes_trabajo").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getFichajesFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("fichajes").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getCitasFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("citas").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getVacacionesFromSupabase() {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("solicitudes_vacaciones").select("*")
+  if (error) throw error
+  return data
+}
+
+export async function getUsuarioByIdFromSupabase(id: string) {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("usuarios").select("*").eq("id", id)
+  if (error) throw error
+  return data
+}
+
+export async function getClienteByIdFromSupabase(id: string) {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("clientes").select("*").eq("id", id)
+  if (error) throw error
+  return data
+}
+
+export async function getVehiculoByIdFromSupabase(id: string) {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("vehiculos").select("*").eq("id", id)
+  if (error) throw error
+  return data
+}
+
+export async function getParteTrabajoByIdFromSupabase(id: string) {
+  if (!isSupabaseReady()) {
+    throw new Error("Supabase not configured")
+  }
+
+  const { data, error } = await supabase!.from("partes_trabajo").select("*").eq("id", id)
+  if (error) throw error
+  return data
+}
+
 export const usuariosDB = usuarios
 export const fichajesDB = fichajes
 export const vacacionesDB = vacaciones

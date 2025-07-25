@@ -1,305 +1,104 @@
-// Mock database with TypeScript interfaces
+// Mock data for development - will be replaced with Supabase queries
 
-export interface Usuario {
-  id: string
-  email: string
-  nombre: string
-  apellidos: string
-  rol: "admin" | "jefe_taller" | "tecnico" | "recepcion"
-  activo: boolean
-  created_at: string
-  updated_at: string
-  dni?: string | null
-  telefono?: string | null
-}
-
-export interface Cliente {
-  id: string
-  nombre: string
-  cif?: string | null
-  telefono?: string | null
-  email?: string | null
-  direccion?: string | null
-  contacto_principal?: string | null
-  activo: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface Vehiculo {
-  id: string
-  cliente_id: string
-  matricula: string
-  marca?: string | null
-  modelo?: string | null
-  año?: number | null
-  tipo?: string | null
-  activo: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface FotoAdjunta {
-  id: string
-  nombre: string
-  descripcion?: string | null
-  url: string
-  fecha_subida: string
-}
-
-export interface ParteTrabajo {
-  id: string
-  numero_parte: string
-  cliente_id?: string | null
-  cliente_nombre?: string | null
-  vehiculo_id?: string | null
-  vehiculo_matricula?: string | null
-  vehiculo_marca?: string | null
-  vehiculo_modelo?: string | null
-  vehiculo_serie?: string | null
-  descripcion: string
-  tecnico_asignado?: string | null
-  tecnico_id?: string | null
-  tipo_trabajo?: string | null
-  prioridad?: string | null
-  estado: "pendiente" | "en_curso" | "pausado" | "completado" | "cancelado"
-  fecha_creacion: string
-  fecha_inicio?: string | null
-  fecha_fin?: string | null
-  tiempo_total?: number | null
-  horas_estimadas?: number | null
-  horas_reales?: number | null
-  horas_facturables?: number | null
-  trabajo_realizado?: string | null
-  materiales_utilizados?: Array<{ id: string; nombre: string; cantidad: number }>
-  descripcion_materiales?: string | null
-  validado?: boolean
-  fecha_validacion?: string | null
-  validado_por?: string | null
-  created_by: string
-  firma_cliente?: string | null
-  dni_cliente?: string | null
-  fecha_firma?: string | null
-  fotos_adjuntas?: FotoAdjunta[]
-  created_at: string
-  updated_at: string
-  cliente?: Cliente
-  vehiculo?: Vehiculo
-  tecnico?: Usuario
-}
-
-export interface Personal {
-  id: string
-  nombre: string
-  apellidos: string
-  dni: string
-  telefono?: string | null
-  email?: string | null
-  puesto: string
-  fecha_alta: string
-  activo: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface Fichaje {
-  id: string
-  usuario_id: string
-  parte_trabajo_id?: string | null
-  tipo: "trabajo" | "presencia"
-  tipo_fichaje: "entrada" | "salida"
-  fecha_hora: string
-  observaciones?: string | null
-  created_at: string
-  parte_trabajo?: Partial<ParteTrabajo>
-}
-
-export interface Vacacion {
-  id: string
-  user_id: string
-  fecha_inicio: string
-  fecha_fin: string
-  dias_solicitados: number
-  tipo: "vacaciones" | "permiso" | "baja"
-  estado: "pendiente" | "aprobada" | "rechazada"
-  motivo?: string | null
-  aprobada_por?: string | null
-  fecha_aprobacion?: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface Material {
-  id: string
-  codigo: string
-  nombre: string
-  descripcion?: string | null
-  categoria: string
-  stock_actual: number
-  stock_minimo: number
-  precio_unitario: number
-  unidad: string
-  proveedor?: string | null
-  ubicacion?: string | null
-  created_at: string
-  updated_at: string
-}
-
-// Add missing Cita interface and data
-export interface Cita {
-  id: string
-  cliente_id: string
-  vehiculo_id?: string | null
-  tecnico_id?: string | null
-  fecha_hora: string
-  descripcion: string
-  estado: "programada" | "en_curso" | "completada" | "cancelada"
-  tipo: "revision" | "reparacion" | "mantenimiento" | "instalacion"
-  duracion_estimada?: number | null
-  observaciones?: string | null
-  created_at: string
-  updated_at: string
-  cliente?: Cliente
-  vehiculo?: Vehiculo
-  tecnico?: Usuario
-}
-
-export const citas: Cita[] = [
+export const usuariosDB = [
   {
     id: "1",
-    cliente_id: "1",
-    vehiculo_id: "1",
-    tecnico_id: "user1",
-    fecha_hora: "2024-01-26T09:00:00Z",
-    descripcion: "Revisión programada sistema hidráulico",
-    estado: "programada",
-    tipo: "revision",
-    duracion_estimada: 120,
-    observaciones: "Cliente solicita revisión completa",
-    created_at: "2024-01-25T10:00:00Z",
-    updated_at: "2024-01-25T10:00:00Z",
-  },
-  {
-    id: "2",
-    cliente_id: "2",
-    vehiculo_id: "3",
-    tecnico_id: "user2",
-    fecha_hora: "2024-01-26T14:00:00Z",
-    descripcion: "Reparación urgente plataforma",
-    estado: "programada",
-    tipo: "reparacion",
-    duracion_estimada: 180,
-    observaciones: "Problema reportado por cliente",
-    created_at: "2024-01-25T11:30:00Z",
-    updated_at: "2024-01-25T11:30:00Z",
-  },
-]
-
-// Mock users data
-export const usuarios: Usuario[] = [
-  {
-    id: "admin",
-    email: "admin@cmghidraulica.com",
-    nombre: "Carlos",
-    apellidos: "Martín Ruiz",
-    rol: "admin",
-    activo: true,
-    dni: "11223344C",
-    telefono: "666555666",
-    created_at: "2022-06-01T09:00:00Z",
-    updated_at: "2022-06-01T09:00:00Z",
-  },
-  {
-    id: "user1",
-    email: "juan.perez@cmghidraulica.com",
-    nombre: "Juan",
-    apellidos: "Pérez García",
-    rol: "tecnico",
-    activo: true,
-    dni: "12345678A",
-    telefono: "666111222",
-    created_at: "2023-01-15T09:00:00Z",
-    updated_at: "2023-01-15T09:00:00Z",
-  },
-  {
-    id: "user2",
-    email: "maria.gonzalez@cmghidraulica.com",
-    nombre: "María",
-    apellidos: "González López",
-    rol: "tecnico",
-    activo: true,
-    dni: "87654321B",
-    telefono: "666333444",
-    created_at: "2023-03-01T09:00:00Z",
-    updated_at: "2023-03-01T09:00:00Z",
-  },
-  {
-    id: "jefe1",
-    email: "supervisor@cmghidraulica.com",
-    nombre: "Ana",
-    apellidos: "Rodríguez Sánchez",
-    rol: "jefe_taller",
-    activo: true,
-    dni: "55667788D",
-    telefono: "666777888",
-    created_at: "2022-09-15T09:00:00Z",
-    updated_at: "2022-09-15T09:00:00Z",
-  },
-  {
-    id: "recep1",
-    email: "recepcion@cmghidraulica.com",
-    nombre: "Laura",
-    apellidos: "Fernández Torres",
-    rol: "recepcion",
-    activo: true,
-    dni: "99887766E",
-    telefono: "666999000",
-    created_at: "2023-05-01T09:00:00Z",
-    updated_at: "2023-05-01T09:00:00Z",
-  },
-]
-
-// Mock data
-export const clientes: Cliente[] = [
-  {
-    id: "1",
-    nombre: "Transportes García S.L.",
-    cif: "B12345678",
+    nombre: "Carlos Martínez",
+    email: "carlos@cmghidraulica.com",
+    rol: "admin" as const,
     telefono: "666123456",
-    email: "info@transportesgarcia.com",
-    direccion: "Calle Principal 123, Madrid",
-    contacto_principal: "Juan García",
     activo: true,
-    created_at: "2024-01-15T10:00:00Z",
-    updated_at: "2024-01-15T10:00:00Z",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
   },
   {
     id: "2",
-    nombre: "Logística Martínez",
-    cif: "B87654321",
-    telefono: "666654321",
-    email: "contacto@logisticamartinez.es",
-    direccion: "Avenida Industrial 45, Barcelona",
-    contacto_principal: "María Martínez",
+    nombre: "Ana García",
+    email: "ana@cmghidraulica.com",
+    rol: "jefe_taller" as const,
+    telefono: "666234567",
     activo: true,
-    created_at: "2024-01-16T11:30:00Z",
-    updated_at: "2024-01-16T11:30:00Z",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
   },
   {
     id: "3",
-    nombre: "Construcciones López",
-    cif: "B11223344",
-    telefono: "666789012",
-    email: "obras@construccioneslopez.com",
-    direccion: "Polígono Sur 67, Valencia",
-    contacto_principal: "Carlos López",
+    nombre: "Miguel López",
+    email: "miguel@cmghidraulica.com",
+    rol: "tecnico" as const,
+    telefono: "666345678",
     activo: true,
-    created_at: "2024-01-17T09:15:00Z",
-    updated_at: "2024-01-17T09:15:00Z",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "4",
+    nombre: "Laura Sánchez",
+    email: "laura@cmghidraulica.com",
+    rol: "recepcion" as const,
+    telefono: "666456789",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "5",
+    nombre: "David Ruiz",
+    email: "david@cmghidraulica.com",
+    rol: "tecnico" as const,
+    telefono: "666567890",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
   },
 ]
 
-export const vehiculos: Vehiculo[] = [
+export const clientesDB = [
+  {
+    id: "1",
+    nombre: "Transportes Jiménez S.L.",
+    cif: "B12345678",
+    direccion: "Calle Principal 123",
+    ciudad: "Madrid",
+    codigo_postal: "28001",
+    telefono: "911234567",
+    email: "info@transportesjimenez.com",
+    contacto_principal: "José Jiménez",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "2",
+    nombre: "Construcciones García",
+    cif: "B87654321",
+    direccion: "Avenida Industrial 45",
+    ciudad: "Barcelona",
+    codigo_postal: "08001",
+    telefono: "931234567",
+    email: "contacto@construccionesgarcia.com",
+    contacto_principal: "María García",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "3",
+    nombre: "Logística Martín",
+    cif: "B11223344",
+    direccion: "Polígono Industrial Norte 67",
+    ciudad: "Valencia",
+    codigo_postal: "46001",
+    telefono: "961234567",
+    email: "admin@logisticamartin.com",
+    contacto_principal: "Antonio Martín",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+]
+
+export const vehiculosDB = [
   {
     id: "1",
     cliente_id: "1",
@@ -307,22 +106,30 @@ export const vehiculos: Vehiculo[] = [
     marca: "Mercedes",
     modelo: "Actros",
     año: 2020,
-    tipo: "Camión",
+    tipo_vehiculo: "Camión",
+    numero_bastidor: "WDB9634321L123456",
+    kilometraje: 150000,
+    fecha_ultima_revision: "2024-01-15",
+    proxima_revision: "2024-07-15",
     activo: true,
-    created_at: "2024-01-15T10:30:00Z",
-    updated_at: "2024-01-15T10:30:00Z",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
   },
   {
     id: "2",
     cliente_id: "1",
     matricula: "5678DEF",
     marca: "Volvo",
-    modelo: "FH",
+    modelo: "FH16",
     año: 2019,
-    tipo: "Camión",
+    tipo_vehiculo: "Camión",
+    numero_bastidor: "YV2A2A1C6KB123456",
+    kilometraje: 200000,
+    fecha_ultima_revision: "2024-02-01",
+    proxima_revision: "2024-08-01",
     activo: true,
-    created_at: "2024-01-15T10:45:00Z",
-    updated_at: "2024-01-15T10:45:00Z",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
   },
   {
     id: "3",
@@ -331,710 +138,510 @@ export const vehiculos: Vehiculo[] = [
     marca: "Scania",
     modelo: "R450",
     año: 2021,
-    tipo: "Camión",
+    tipo_vehiculo: "Camión",
+    numero_bastidor: "YS2R4X20005123456",
+    kilometraje: 80000,
+    fecha_ultima_revision: "2024-01-20",
+    proxima_revision: "2024-07-20",
     activo: true,
-    created_at: "2024-01-16T12:00:00Z",
-    updated_at: "2024-01-16T12:00:00Z",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "4",
+    cliente_id: "3",
+    matricula: "3456JKL",
+    marca: "MAN",
+    modelo: "TGX",
+    año: 2018,
+    tipo_vehiculo: "Camión",
+    numero_bastidor: "WMA06XZZ6JM123456",
+    kilometraje: 300000,
+    fecha_ultima_revision: "2024-01-10",
+    proxima_revision: "2024-07-10",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
   },
 ]
 
-export const partesTrabajo: ParteTrabajo[] = [
+export const materialesDB = [
+  {
+    id: "1",
+    codigo: "FIL001",
+    nombre: "Filtro de aceite motor",
+    descripcion: "Filtro de aceite para motores diésel",
+    categoria: "Filtros",
+    precio_compra: 15.5,
+    precio_venta: 25.0,
+    stock_actual: 50,
+    stock_minimo: 10,
+    proveedor: "Filtros Industriales S.L.",
+    ubicacion: "Estantería A-1",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "2",
+    codigo: "FIL002",
+    nombre: "Filtro de aire",
+    descripcion: "Filtro de aire para sistema de admisión",
+    categoria: "Filtros",
+    precio_compra: 22.0,
+    precio_venta: 35.0,
+    stock_actual: 30,
+    stock_minimo: 8,
+    proveedor: "Filtros Industriales S.L.",
+    ubicacion: "Estantería A-2",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "3",
+    codigo: "ACE001",
+    nombre: "Aceite motor 15W40",
+    descripcion: "Aceite mineral para motores diésel",
+    categoria: "Lubricantes",
+    precio_compra: 45.0,
+    precio_venta: 65.0,
+    stock_actual: 25,
+    stock_minimo: 5,
+    proveedor: "Lubricantes Profesionales",
+    ubicacion: "Almacén B-1",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "4",
+    codigo: "FRE001",
+    nombre: "Pastillas de freno",
+    descripcion: "Pastillas de freno delanteras",
+    categoria: "Frenos",
+    precio_compra: 80.0,
+    precio_venta: 120.0,
+    stock_actual: 20,
+    stock_minimo: 4,
+    proveedor: "Frenos y Embragues S.A.",
+    ubicacion: "Estantería C-1",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "5",
+    codigo: "FRE002",
+    nombre: "Discos de freno",
+    descripcion: "Discos de freno delanteros",
+    categoria: "Frenos",
+    precio_compra: 120.0,
+    precio_venta: 180.0,
+    stock_actual: 15,
+    stock_minimo: 3,
+    proveedor: "Frenos y Embragues S.A.",
+    ubicacion: "Estantería C-2",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "6",
+    codigo: "NEU001",
+    nombre: "Neumático 315/80R22.5",
+    descripcion: "Neumático para eje directriz",
+    categoria: "Neumáticos",
+    precio_compra: 200.0,
+    precio_venta: 300.0,
+    stock_actual: 12,
+    stock_minimo: 2,
+    proveedor: "Neumáticos Comerciales",
+    ubicacion: "Almacén D-1",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "7",
+    codigo: "BAT001",
+    nombre: "Batería 12V 180Ah",
+    descripcion: "Batería de arranque para vehículos pesados",
+    categoria: "Eléctrico",
+    precio_compra: 150.0,
+    precio_venta: 220.0,
+    stock_actual: 8,
+    stock_minimo: 2,
+    proveedor: "Baterías Industriales",
+    ubicacion: "Estantería E-1",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "8",
+    codigo: "JUN001",
+    nombre: "Junta de culata",
+    descripcion: "Junta de culata para motor diésel",
+    categoria: "Motor",
+    precio_compra: 180.0,
+    precio_venta: 280.0,
+    stock_actual: 5,
+    stock_minimo: 1,
+    proveedor: "Repuestos Motor S.L.",
+    ubicacion: "Estantería F-1",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+]
+
+export const partesTrabajoDB = [
   {
     id: "1",
     numero_parte: "PT-2024-001",
     cliente_id: "1",
-    cliente_nombre: "Transportes García S.L.",
     vehiculo_id: "1",
-    vehiculo_matricula: "1234ABC",
-    vehiculo_marca: "HIAB",
-    vehiculo_modelo: "Xi166",
-    vehiculo_serie: "123456",
-    descripcion: "Revisión sistema hidráulico de grúa",
-    tecnico_asignado: "Juan Pérez",
-    tecnico_id: "user1",
+    fecha_entrada: "2024-01-15",
+    fecha_salida: null,
+    estado: "en_proceso" as const,
     tipo_trabajo: "Mantenimiento",
-    prioridad: "media",
-    estado: "completado",
-    fecha_creacion: "2024-01-20T08:00:00Z",
-    fecha_inicio: "2024-01-20T09:00:00Z",
-    fecha_fin: "2024-01-20T12:00:00Z",
-    tiempo_total: 180,
-    horas_estimadas: 3,
-    horas_reales: 3.2,
-    horas_facturables: 3.0,
-    trabajo_realizado:
-      "Se realizó revisión completa del sistema hidráulico. Se cambió aceite y filtros. Se ajustaron presiones según especificaciones del fabricante.",
+    descripcion_problema: "Revisión periódica y cambio de aceite",
+    diagnostico: "Vehículo en buen estado general. Necesario cambio de filtros.",
+    trabajo_realizado: "Cambio de aceite y filtros. Revisión general.",
+    tecnico_asignado: "3",
+    horas_estimadas: 4,
+    horas_reales: 3.5,
+    kilometraje_entrada: 150000,
+    observaciones: "Cliente solicita revisión completa",
     materiales_utilizados: [
-      { id: "1", nombre: "HID-001 - Aceite hidráulico ISO 46", cantidad: 20 },
-      { id: "2", nombre: "FIL-002 - Filtro hidráulico", cantidad: 2 },
+      { material_id: "1", cantidad: 1, precio_unitario: 25.0 },
+      { material_id: "2", cantidad: 1, precio_unitario: 35.0 },
+      { material_id: "3", cantidad: 4, precio_unitario: 65.0 },
     ],
-    descripcion_materiales: "Aceite hidráulico de alta calidad y filtros originales HIAB",
-    validado: true,
-    fecha_validacion: "2024-01-20T13:00:00Z",
-    validado_por: "jefe1",
-    created_by: "user1",
-    firma_cliente:
-      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-    dni_cliente: "12345678A",
-    fecha_firma: "2024-01-20T12:30:00Z",
-    fotos_adjuntas: [
-      {
-        id: "foto1",
-        nombre: "problema_hidraulico.jpg",
-        descripcion: "Fuga en cilindro principal",
-        url: "/placeholder.svg?height=200&width=300",
-        fecha_subida: "2024-01-20T08:30:00Z",
-      },
-    ],
-    created_at: "2024-01-20T08:00:00Z",
-    updated_at: "2024-01-20T12:00:00Z",
+    mano_obra: 150.0,
+    total_materiales: 320.0,
+    total_parte: 470.0,
+    created_at: "2024-01-15T09:00:00Z",
+    updated_at: "2024-01-15T16:30:00Z",
   },
   {
     id: "2",
     numero_parte: "PT-2024-002",
     cliente_id: "2",
-    cliente_nombre: "Logística Martínez",
     vehiculo_id: "3",
-    vehiculo_matricula: "9012GHI",
-    vehiculo_marca: "Zepro",
-    vehiculo_modelo: "ZS200",
-    vehiculo_serie: "789012",
-    descripcion: "Reparación plataforma elevadora",
-    tecnico_asignado: "María González",
-    tecnico_id: "user2",
+    fecha_entrada: "2024-01-20",
+    fecha_salida: "2024-01-22",
+    estado: "completado" as const,
     tipo_trabajo: "Reparación",
-    prioridad: "alta",
-    estado: "en_curso",
-    fecha_creacion: "2024-01-21T10:00:00Z",
-    fecha_inicio: "2024-01-21T11:00:00Z",
-    fecha_fin: null,
-    tiempo_total: null,
-    horas_estimadas: 4,
-    horas_reales: 2.5,
-    created_by: "user2",
-    firma_cliente: null,
-    dni_cliente: null,
-    fotos_adjuntas: [
-      {
-        id: "foto2",
-        nombre: "plataforma_dañada.jpg",
-        descripcion: "Daño en estructura de la plataforma",
-        url: "/placeholder.svg?height=200&width=300",
-        fecha_subida: "2024-01-21T10:15:00Z",
-      },
-      {
-        id: "foto3",
-        nombre: "motor_plataforma.jpg",
-        descripcion: "Motor de elevación",
-        url: "/placeholder.svg?height=200&width=300",
-        fecha_subida: "2024-01-21T10:20:00Z",
-      },
+    descripcion_problema: "Ruido en frenos delanteros",
+    diagnostico: "Pastillas de freno gastadas y discos rayados",
+    trabajo_realizado: "Cambio de pastillas y discos de freno delanteros",
+    tecnico_asignado: "5",
+    horas_estimadas: 3,
+    horas_reales: 3,
+    kilometraje_entrada: 80000,
+    observaciones: "Trabajo urgente solicitado por cliente",
+    materiales_utilizados: [
+      { material_id: "4", cantidad: 1, precio_unitario: 120.0 },
+      { material_id: "5", cantidad: 2, precio_unitario: 180.0 },
     ],
-    created_at: "2024-01-21T10:00:00Z",
-    updated_at: "2024-01-21T11:00:00Z",
+    mano_obra: 120.0,
+    total_materiales: 480.0,
+    total_parte: 600.0,
+    created_at: "2024-01-20T08:00:00Z",
+    updated_at: "2024-01-22T17:00:00Z",
   },
   {
     id: "3",
     numero_parte: "PT-2024-003",
     cliente_id: "3",
-    cliente_nombre: "Construcciones López",
-    vehiculo_id: null,
-    vehiculo_matricula: "3456JKL",
-    vehiculo_marca: "Dhollandia",
-    vehiculo_modelo: "DHLM.20",
-    vehiculo_serie: "345678",
-    descripcion: "Instalación nueva plataforma hidráulica",
-    tecnico_asignado: null,
-    tipo_trabajo: null,
-    prioridad: null,
-    estado: "pendiente",
-    fecha_creacion: "2024-01-22T14:00:00Z",
-    fecha_inicio: null,
-    fecha_fin: null,
-    tiempo_total: null,
-    horas_estimadas: 6,
-    created_by: "user1",
-    firma_cliente: null,
-    dni_cliente: null,
-    fotos_adjuntas: [],
-    created_at: "2024-01-22T14:00:00Z",
-    updated_at: "2024-01-22T14:00:00Z",
+    vehiculo_id: "4",
+    fecha_entrada: "2024-01-25",
+    fecha_salida: null,
+    estado: "pendiente" as const,
+    tipo_trabajo: "Diagnóstico",
+    descripcion_problema: "Pérdida de potencia en motor",
+    diagnostico: "Pendiente de diagnóstico completo",
+    trabajo_realizado: "",
+    tecnico_asignado: "3",
+    horas_estimadas: 2,
+    horas_reales: 0,
+    kilometraje_entrada: 300000,
+    observaciones: "Vehículo en cola de diagnóstico",
+    materiales_utilizados: [],
+    mano_obra: 0,
+    total_materiales: 0,
+    total_parte: 0,
+    created_at: "2024-01-25T10:00:00Z",
+    updated_at: "2024-01-25T10:00:00Z",
+  },
+  {
+    id: "4",
+    numero_parte: "PT-2024-004",
+    cliente_id: "1",
+    vehiculo_id: "2",
+    fecha_entrada: "2024-01-28",
+    fecha_salida: "2024-01-30",
+    estado: "completado" as const,
+    tipo_trabajo: "Mantenimiento",
+    descripcion_problema: "Mantenimiento programado",
+    diagnostico: "Mantenimiento según programa",
+    trabajo_realizado: "Cambio de aceite, filtros y revisión general",
+    tecnico_asignado: "5",
+    horas_estimadas: 5,
+    horas_reales: 4.5,
+    kilometraje_entrada: 200000,
+    observaciones: "Mantenimiento según kilometraje",
+    materiales_utilizados: [
+      { material_id: "1", cantidad: 1, precio_unitario: 25.0 },
+      { material_id: "2", cantidad: 1, precio_unitario: 35.0 },
+      { material_id: "3", cantidad: 5, precio_unitario: 65.0 },
+    ],
+    mano_obra: 180.0,
+    total_materiales: 385.0,
+    total_parte: 565.0,
+    created_at: "2024-01-28T08:30:00Z",
+    updated_at: "2024-01-30T16:00:00Z",
   },
 ]
 
-export const personal: Personal[] = [
-  {
-    id: "user1",
-    nombre: "Juan",
-    apellidos: "Pérez García",
-    dni: "12345678A",
-    telefono: "666111222",
-    email: "juan.perez@cmghidraulica.com",
-    puesto: "Técnico Senior",
-    fecha_alta: "2023-01-15",
-    activo: true,
-    created_at: "2023-01-15T09:00:00Z",
-    updated_at: "2023-01-15T09:00:00Z",
-  },
-  {
-    id: "user2",
-    nombre: "María",
-    apellidos: "González López",
-    dni: "87654321B",
-    telefono: "666333444",
-    email: "maria.gonzalez@cmghidraulica.com",
-    puesto: "Técnico",
-    fecha_alta: "2023-03-01",
-    activo: true,
-    created_at: "2023-03-01T09:00:00Z",
-    updated_at: "2023-03-01T09:00:00Z",
-  },
-  {
-    id: "admin",
-    nombre: "Carlos",
-    apellidos: "Martín Ruiz",
-    dni: "11223344C",
-    telefono: "666555666",
-    email: "carlos.martin@cmghidraulica.com",
-    puesto: "Supervisor",
-    fecha_alta: "2022-06-01",
-    activo: true,
-    created_at: "2022-06-01T09:00:00Z",
-    updated_at: "2022-06-01T09:00:00Z",
-  },
-]
-
-export const fichajes: Fichaje[] = [
+export const fichajesDB = [
   {
     id: "1",
-    usuario_id: "user1",
+    usuario_id: "3",
+    fecha: "2024-01-15",
+    hora_entrada: "08:00",
+    hora_salida: "17:00",
+    horas_trabajadas: 8,
+    tipo: "trabajo" as const,
     parte_trabajo_id: "1",
-    tipo: "trabajo",
-    tipo_fichaje: "entrada",
-    fecha_hora: "2024-01-25T08:00:00Z",
-    observaciones: "Inicio trabajo en parte PT-2024-001",
-    created_at: "2024-01-25T08:00:00Z",
+    observaciones: "Trabajo en parte PT-2024-001",
+    created_at: "2024-01-15T08:00:00Z",
+    updated_at: "2024-01-15T17:00:00Z",
   },
   {
     id: "2",
-    usuario_id: "user2",
-    parte_trabajo_id: null,
-    tipo: "presencia",
-    tipo_fichaje: "entrada",
-    fecha_hora: "2024-01-25T08:30:00Z",
-    observaciones: "Entrada oficina",
-    created_at: "2024-01-25T08:30:00Z",
+    usuario_id: "5",
+    fecha: "2024-01-20",
+    hora_entrada: "08:00",
+    hora_salida: "16:00",
+    horas_trabajadas: 7,
+    tipo: "trabajo" as const,
+    parte_trabajo_id: "2",
+    observaciones: "Reparación frenos",
+    created_at: "2024-01-20T08:00:00Z",
+    updated_at: "2024-01-20T16:00:00Z",
   },
   {
     id: "3",
-    usuario_id: "user1",
-    parte_trabajo_id: "1",
-    tipo: "trabajo",
-    tipo_fichaje: "salida",
-    fecha_hora: "2024-01-25T12:00:00Z",
-    observaciones: "Fin trabajo en parte PT-2024-001",
-    created_at: "2024-01-25T12:00:00Z",
+    usuario_id: "3",
+    fecha: "2024-01-21",
+    hora_entrada: "08:30",
+    hora_salida: "17:30",
+    horas_trabajadas: 8,
+    tipo: "presencia" as const,
+    parte_trabajo_id: null,
+    observaciones: "Día de presencia en taller",
+    created_at: "2024-01-21T08:30:00Z",
+    updated_at: "2024-01-21T17:30:00Z",
+  },
+  {
+    id: "4",
+    usuario_id: "5",
+    fecha: "2024-01-22",
+    hora_entrada: "07:45",
+    hora_salida: "16:45",
+    horas_trabajadas: 8,
+    tipo: "trabajo" as const,
+    parte_trabajo_id: "2",
+    observaciones: "Finalización reparación frenos",
+    created_at: "2024-01-22T07:45:00Z",
+    updated_at: "2024-01-22T16:45:00Z",
+  },
+  {
+    id: "5",
+    usuario_id: "3",
+    fecha: "2024-01-25",
+    hora_entrada: "08:00",
+    hora_salida: "12:00",
+    horas_trabajadas: 4,
+    tipo: "trabajo" as const,
+    parte_trabajo_id: "3",
+    observaciones: "Diagnóstico inicial",
+    created_at: "2024-01-25T08:00:00Z",
+    updated_at: "2024-01-25T12:00:00Z",
   },
 ]
 
-export const vacaciones: Vacacion[] = [
+export const citasDB = [
   {
     id: "1",
-    user_id: "user1",
-    fecha_inicio: "2024-02-15",
-    fecha_fin: "2024-02-25",
-    dias_solicitados: 8,
-    tipo: "vacaciones",
-    estado: "aprobada",
-    motivo: "Vacaciones de invierno",
-    aprobada_por: "admin",
-    fecha_aprobacion: "2024-01-20T10:00:00Z",
-    created_at: "2024-01-18T14:00:00Z",
+    cliente_id: "1",
+    vehiculo_id: "1",
+    fecha: "2024-02-01",
+    hora: "09:00",
+    tipo_servicio: "Mantenimiento",
+    descripcion: "Revisión periódica programada",
+    estado: "confirmada" as const,
+    tecnico_asignado: "3",
+    duracion_estimada: 240, // minutos
+    observaciones: "Cliente prefiere horario matutino",
+    created_at: "2024-01-20T10:00:00Z",
     updated_at: "2024-01-20T10:00:00Z",
   },
   {
     id: "2",
-    user_id: "user2",
-    fecha_inicio: "2024-03-01",
-    fecha_fin: "2024-03-01",
-    dias_solicitados: 1,
-    tipo: "permiso",
-    estado: "pendiente",
-    motivo: "Asunto personal",
-    aprobada_por: null,
-    fecha_aprobacion: null,
-    created_at: "2024-01-25T16:00:00Z",
-    updated_at: "2024-01-25T16:00:00Z",
-  },
-]
-
-export const materiales: Material[] = [
-  {
-    id: "1",
-    codigo: "HID-001",
-    nombre: "Aceite hidráulico ISO 46",
-    descripcion: "Aceite hidráulico de alta calidad para sistemas de grúas",
-    categoria: "Fluidos",
-    stock_actual: 25,
-    stock_minimo: 5,
-    precio_unitario: 45.5,
-    unidad: "litros",
-    proveedor: "Hidráulicos del Norte S.L.",
-    ubicacion: "Almacén A - Estantería 1",
-    created_at: "2024-01-10T10:00:00Z",
-    updated_at: "2024-01-20T15:30:00Z",
-  },
-  {
-    id: "2",
-    codigo: "SEL-002",
-    nombre: "Kit sellos cilindro 80mm",
-    descripcion: "Kit completo de sellos para cilindro hidráulico de 80mm",
-    categoria: "Sellos",
-    stock_actual: 8,
-    stock_minimo: 3,
-    precio_unitario: 28.75,
-    unidad: "unidades",
-    proveedor: "Sellos Industriales Madrid",
-    ubicacion: "Almacén B - Cajón 15",
-    created_at: "2024-01-12T11:15:00Z",
-    updated_at: "2024-01-22T09:45:00Z",
+    cliente_id: "2",
+    vehiculo_id: "3",
+    fecha: "2024-02-02",
+    hora: "14:00",
+    tipo_servicio: "Reparación",
+    descripcion: "Revisión sistema eléctrico",
+    estado: "pendiente" as const,
+    tecnico_asignado: "5",
+    duracion_estimada: 180,
+    observaciones: "Problema intermitente reportado",
+    created_at: "2024-01-22T11:30:00Z",
+    updated_at: "2024-01-22T11:30:00Z",
   },
   {
     id: "3",
-    codigo: "VAL-003",
-    nombre: "Válvula direccional 4/3",
-    descripcion: "Válvula direccional 4/3 vías para control de grúa",
-    categoria: "Válvulas",
-    stock_actual: 2,
-    stock_minimo: 1,
-    precio_unitario: 185.0,
-    unidad: "unidades",
-    proveedor: "Componentes Hidráulicos S.A.",
-    ubicacion: "Almacén A - Estantería 3",
-    created_at: "2024-01-08T14:20:00Z",
-    updated_at: "2024-01-18T12:10:00Z",
+    cliente_id: "3",
+    vehiculo_id: "4",
+    fecha: "2024-02-05",
+    hora: "10:30",
+    tipo_servicio: "Diagnóstico",
+    descripcion: "Diagnóstico completo motor",
+    estado: "confirmada" as const,
+    tecnico_asignado: "3",
+    duracion_estimada: 120,
+    observaciones: "Seguimiento de parte anterior",
+    created_at: "2024-01-25T15:00:00Z",
+    updated_at: "2024-01-25T15:00:00Z",
+  },
+  {
+    id: "4",
+    cliente_id: "1",
+    vehiculo_id: "2",
+    fecha: "2024-02-08",
+    hora: "08:00",
+    tipo_servicio: "Mantenimiento",
+    descripcion: "Cambio de neumáticos",
+    estado: "pendiente" as const,
+    tecnico_asignado: "5",
+    duracion_estimada: 90,
+    observaciones: "Cliente traerá neumáticos nuevos",
+    created_at: "2024-01-28T09:15:00Z",
+    updated_at: "2024-01-28T09:15:00Z",
   },
 ]
 
-// Authentication function
-export const authenticateUser = async (email: string, password?: string) => {
-  // Test credentials mapping
-  const testCredentials: Record<string, string> = {
-    "admin@cmgplataformas.com": "admin123",
-    "jefe@cmgplataformas.com": "jefe123",
-    "juan@cmgplataformas.com": "juan123",
-    "maria@cmgplataformas.com": "maria123",
-  }
+export const vacacionesDB = [
+  {
+    id: "1",
+    usuario_id: "3",
+    fecha_inicio: "2024-07-15",
+    fecha_fin: "2024-07-29",
+    dias_solicitados: 15,
+    tipo: "vacaciones" as const,
+    estado: "aprobada" as const,
+    motivo: "Vacaciones de verano",
+    fecha_solicitud: "2024-05-15",
+    aprobado_por: "2",
+    fecha_aprobacion: "2024-05-16",
+    observaciones: "Aprobado sin problemas",
+    created_at: "2024-05-15T10:00:00Z",
+    updated_at: "2024-05-16T14:30:00Z",
+  },
+  {
+    id: "2",
+    usuario_id: "5",
+    fecha_inicio: "2024-08-01",
+    fecha_fin: "2024-08-15",
+    dias_solicitados: 15,
+    tipo: "vacaciones" as const,
+    estado: "pendiente" as const,
+    motivo: "Vacaciones familiares",
+    fecha_solicitud: "2024-06-01",
+    aprobado_por: null,
+    fecha_aprobacion: null,
+    observaciones: "Pendiente de revisión",
+    created_at: "2024-06-01T09:00:00Z",
+    updated_at: "2024-06-01T09:00:00Z",
+  },
+  {
+    id: "3",
+    usuario_id: "4",
+    fecha_inicio: "2024-12-23",
+    fecha_fin: "2024-12-31",
+    dias_solicitados: 9,
+    tipo: "vacaciones" as const,
+    estado: "aprobada" as const,
+    motivo: "Vacaciones navideñas",
+    fecha_solicitud: "2024-10-15",
+    aprobado_por: "1",
+    fecha_aprobacion: "2024-10-16",
+    observaciones: "Aprobado para fechas navideñas",
+    created_at: "2024-10-15T11:00:00Z",
+    updated_at: "2024-10-16T16:00:00Z",
+  },
+]
 
-  // Check if it's a test credential
-  if (testCredentials[email] && testCredentials[email] === password) {
-    // Map test emails to actual user data
-    let user: Usuario | undefined
-
-    switch (email) {
-      case "admin@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "admin")
-        break
-      case "jefe@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "jefe1")
-        break
-      case "juan@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "user1")
-        break
-      case "maria@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "user2")
-        break
-    }
-
-    if (user && user.activo) {
-      return { data: user, error: null }
-    }
-  }
-
-  // Check regular credentials (existing users in the database)
-  const user = usuarios.find((u) => u.email === email && u.activo)
-  if (user) {
-    return { data: user, error: null }
-  }
-
-  return { data: null, error: { message: "Invalid credentials" } }
+// Helper functions
+export async function getUsuarios() {
+  return usuariosDB
 }
 
-// User functions
-export const getUsuarios = async () => ({ data: usuarios, error: null })
-export const getUserById = async (id: string) => ({
-  data: usuarios.find((u) => u.id === id) || null,
-  error: null,
-})
-
-// Fichaje functions
-export const createFichaje = (fichajeData: Omit<Fichaje, "id" | "created_at">) => {
-  const newFichaje: Fichaje = {
-    ...fichajeData,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-  }
-  fichajes.push(newFichaje)
-  return { data: newFichaje, error: null }
+export async function getClientes() {
+  return clientesDB
 }
 
-export const getFichajesByParteId = async (parteId: string) => {
-  return { data: fichajes.filter((f) => f.parte_trabajo_id === parteId), error: null }
+export async function getVehiculos() {
+  return vehiculosDB
 }
 
-export const getUltimoFichaje = async (usuarioId: string, parteId: string) => {
-  const fichajesUsuario = fichajes
-    .filter((f) => f.usuario_id === usuarioId && f.parte_trabajo_id === parteId && f.tipo === "trabajo")
-    .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-  return { data: fichajesUsuario.length > 0 ? fichajesUsuario[0] : null, error: null }
+export async function getVehiculosByCliente(clienteId: string) {
+  return vehiculosDB.filter((v) => v.cliente_id === clienteId)
 }
 
-export const getUltimoFichajeActivoPorUsuario = async (usuarioId: string) => {
-  const userFichajes = fichajes
-    .filter((f) => f.usuario_id === usuarioId && f.tipo === "trabajo")
-    .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-
-  const ultimoFichaje = userFichajes[0]
-  if (ultimoFichaje && ultimoFichaje.tipo_fichaje === "entrada") {
-    const parte = partesTrabajo.find((p) => p.id === ultimoFichaje.parte_trabajo_id)
-    return { data: { ...ultimoFichaje, parte_trabajo: parte }, error: null }
-  }
-  return { data: null, error: null }
+export async function getMateriales() {
+  return materialesDB
 }
 
-export const getUltimoFichajePresencia = async (userId: string) => {
-  const userFichajes = fichajes
-    .filter((f) => f.usuario_id === userId && f.tipo === "presencia")
-    .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-  return { data: userFichajes.length > 0 ? userFichajes[0] : null, error: null }
+export async function getPartesTrabajoRecientes() {
+  return partesTrabajoDB.slice(0, 5)
 }
 
-export const createFichajePresencia = async (userId: string, tipoFichaje: "entrada" | "salida") => {
-  const fichajeData: Omit<Fichaje, "id" | "created_at"> = {
-    usuario_id: userId,
-    parte_trabajo_id: null,
-    tipo: "presencia",
-    tipo_fichaje: tipoFichaje,
-    fecha_hora: new Date().toISOString(),
-    observaciones: `Fichaje de ${tipoFichaje}`,
-  }
-  return createFichaje(fichajeData)
+export async function getFichajes() {
+  return fichajesDB
 }
 
-// Materials functions
-export const searchMateriales = async (term: string) => {
-  if (!term) return { data: [], error: null }
-  const lowerTerm = term.toLowerCase()
-  const data = materiales.filter(
-    (m) =>
-      m.nombre.toLowerCase().includes(lowerTerm) ||
-      m.codigo.toLowerCase().includes(lowerTerm) ||
-      (m.descripcion && m.descripcion.toLowerCase().includes(lowerTerm)),
-  )
-  return { data, error: null }
+export async function getCitas() {
+  return citasDB
 }
 
-export const getMaterialesByParteId = async (parteId: string) => {
-  const parte = partesTrabajo.find((p) => p.id === parteId)
-  return { data: parte?.materiales_utilizados || [], error: null }
+export async function getVacaciones() {
+  return vacacionesDB
 }
 
-// Work Orders functions
-export const getAllPartes = async () => {
-  const data = partesTrabajo.map((pt) => {
-    const cliente = clientes.find((c) => c.id === pt.cliente_id)
-    const vehiculo = vehiculos.find((v) => v.id === pt.vehiculo_id)
-    const tecnico = usuarios.find((u) => u.id === pt.tecnico_id)
-    return {
-      ...pt,
-      cliente,
-      vehiculo,
-      tecnico,
-      cliente_nombre: pt.cliente_nombre || cliente?.nombre,
-    }
-  })
-  return { data, error: null }
+export async function getUsuarioById(id: string) {
+  return usuariosDB.find((u) => u.id === id)
 }
 
-export const getParteById = async (id: string) => {
-  const parte = partesTrabajo.find((p) => p.id === id)
-  if (!parte) return { data: null, error: { message: "Parte no encontrado" } }
-
-  const cliente = clientes.find((c) => c.id === parte.cliente_id)
-  const vehiculo = vehiculos.find((v) => v.id === parte.vehiculo_id)
-  const tecnico = usuarios.find((u) => u.id === parte.tecnico_id)
-  const data = { ...parte, cliente, vehiculo, tecnico }
-  return { data, error: null }
+export async function getClienteById(id: string) {
+  return clientesDB.find((c) => c.id === id)
 }
 
-export const updateParte = (id: string, updates: Partial<ParteTrabajo>) => {
-  const itemIndex = partesTrabajo.findIndex((i) => i.id === id)
-  if (itemIndex === -1) {
-    return { data: null, error: { message: "Not found" } }
-  }
-  const updatedItem = { ...partesTrabajo[itemIndex], ...updates, updated_at: new Date().toISOString() }
-  partesTrabajo[itemIndex] = updatedItem
-  return { data: updatedItem, error: null }
+export async function getVehiculoById(id: string) {
+  return vehiculosDB.find((v) => v.id === id)
 }
 
-// Clients & Vehicles functions
-export const getClientes = async () => ({ data: clientes, error: null })
-export const getVehiculos = async () => ({ data: vehiculos, error: null })
-
-// CRUD operations
-export const createCliente = async (data: Omit<Cliente, "id" | "created_at" | "updated_at">): Promise<Cliente> => {
-  const newCliente: Cliente = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    activo: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  clientes.push(newCliente)
-  return newCliente
+export async function getParteTrabajoById(id: string) {
+  return partesTrabajoDB.find((p) => p.id === id)
 }
 
-export const createVehiculo = async (data: Omit<Vehiculo, "id" | "created_at" | "updated_at">): Promise<Vehiculo> => {
-  const newVehiculo: Vehiculo = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    activo: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  vehiculos.push(newVehiculo)
-  return newVehiculo
-}
-
-export const createParte = (data: Omit<ParteTrabajo, "id" | "numero_parte" | "created_at" | "updated_at">) => {
-  const numeroPartes = partesTrabajo.length + 1
-  const newParte: ParteTrabajo = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    numero_parte: `PT-2024-${numeroPartes.toString().padStart(3, "0")}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  partesTrabajo.push(newParte)
-  return { data: newParte, error: null }
-}
-
-export const createParteTrabajo = async (
-  data: Omit<ParteTrabajo, "id" | "numero_parte" | "created_at" | "updated_at">,
-): Promise<ParteTrabajo> => {
-  const numeroPartes = partesTrabajo.length + 1
-  const newParte: ParteTrabajo = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    numero_parte: `PT-2024-${numeroPartes.toString().padStart(3, "0")}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  partesTrabajo.push(newParte)
-  return newParte
-}
-
-export const createPersonal = async (data: Omit<Personal, "id" | "created_at" | "updated_at">): Promise<Personal> => {
-  const newPersonal: Personal = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  personal.push(newPersonal)
-  return newPersonal
-}
-
-export const createVacacion = async (data: Omit<Vacacion, "id" | "created_at" | "updated_at">): Promise<Vacacion> => {
-  const newVacacion: Vacacion = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  vacaciones.push(newVacacion)
-  return newVacacion
-}
-
-export const createMaterial = async (data: Omit<Material, "id" | "created_at" | "updated_at">): Promise<Material> => {
-  const newMaterial: Material = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  materiales.push(newMaterial)
-  return newMaterial
-}
-
-// Update operations
-export const updateParteTrabajo = async (id: string, data: Partial<ParteTrabajo>): Promise<ParteTrabajo | null> => {
-  const index = partesTrabajo.findIndex((p) => p.id === id)
-  if (index === -1) return null
-
-  partesTrabajo[index] = {
-    ...partesTrabajo[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return partesTrabajo[index]
-}
-
-export const updatePersonal = async (id: string, data: Partial<Personal>): Promise<Personal | null> => {
-  const index = personal.findIndex((p) => p.id === id)
-  if (index === -1) return null
-
-  personal[index] = {
-    ...personal[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return personal[index]
-}
-
-export const updateFichaje = async (id: string, data: Partial<Fichaje>): Promise<Fichaje | null> => {
-  const index = fichajes.findIndex((f) => f.id === id)
-  if (index === -1) return null
-
-  fichajes[index] = {
-    ...fichajes[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return fichajes[index]
-}
-
-export const updateVacacion = async (id: string, data: Partial<Vacacion>): Promise<Vacacion | null> => {
-  const index = vacaciones.findIndex((v) => v.id === id)
-  if (index === -1) return null
-
-  vacaciones[index] = {
-    ...vacaciones[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return vacaciones[index]
-}
-
-export const updateMaterial = async (id: string, data: Partial<Material>): Promise<Material | null> => {
-  const index = materiales.findIndex((m) => m.id === id)
-  if (index === -1) return null
-
-  materiales[index] = {
-    ...materiales[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return materiales[index]
-}
-
-// Delete operations
-export const deleteCliente = async (id: string): Promise<boolean> => {
-  const index = clientes.findIndex((c) => c.id === id)
-  if (index === -1) return false
-
-  clientes.splice(index, 1)
-  return true
-}
-
-export const deleteVehiculo = async (id: string): Promise<boolean> => {
-  const index = vehiculos.findIndex((v) => v.id === id)
-  if (index === -1) return false
-
-  vehiculos.splice(index, 1)
-  return true
-}
-
-export const deleteParteTrabajo = async (id: string): Promise<boolean> => {
-  const index = partesTrabajo.findIndex((p) => p.id === id)
-  if (index === -1) return false
-
-  partesTrabajo.splice(index, 1)
-  return true
-}
-
-export const deletePersonal = async (id: string): Promise<boolean> => {
-  const index = personal.findIndex((p) => p.id === id)
-  if (index === -1) return false
-
-  personal.splice(index, 1)
-  return true
-}
-
-export const deleteFichaje = async (id: string): Promise<boolean> => {
-  const index = fichajes.findIndex((f) => f.id === id)
-  if (index === -1) return false
-
-  fichajes.splice(index, 1)
-  return true
-}
-
-export const deleteVacacion = async (id: string): Promise<boolean> => {
-  const index = vacaciones.findIndex((v) => v.id === id)
-  if (index === -1) return false
-
-  vacaciones.splice(index, 1)
-  return true
-}
-
-export const deleteMaterial = async (id: string): Promise<boolean> => {
-  const index = materiales.findIndex((m) => m.id === id)
-  if (index === -1) return false
-
-  materiales.splice(index, 1)
-  return true
-}
-
-// Permission checks
-export const canViewAllWorkOrders = (rol?: string): boolean =>
-  !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
-
-export const canCreateWorkOrders = (rol?: string): boolean =>
-  !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
-
-export const canEditWorkOrders = (rol?: string): boolean => !!rol && ["admin", "jefe_taller"].includes(rol)
-
-export const canValidateWorkOrders = (rol?: string): boolean => !!rol && ["admin", "jefe_taller"].includes(rol)
-
-export const canManageUsers = (rol?: string): boolean => rol === "admin"
-
-export const canManageSettings = (rol?: string): boolean => rol === "admin"
-
-export const canCreateAppointments = (rol?: string): boolean =>
-  !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
-
-export const canManageClients = (rol?: string): boolean => !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
-
-export const canManageMaterials = (rol?: string): boolean =>
-  !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
-
-// Connection status
-export const isSupabaseReady = () => {
-  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-}
-
-// Add the missing exports that are being imported elsewhere
-
-// Add these exports at the end of the file:
-export const getPersonal = async () => ({ data: personal, error: null })
-export const getFichajes = async () => ({ data: fichajes, error: null })
-export const getVacaciones = async () => ({ data: vacaciones, error: null })
-export const getMateriales = async () => ({ data: materiales, error: null })
-export const getPartesTrabajo = async () => ({ data: partesTrabajo, error: null })
-export const getCitas = async () => ({ data: citas, error: null })
-
-export const createCita = async (data: Omit<Cita, "id" | "created_at" | "updated_at">): Promise<Cita> => {
-  const newCita: Cita = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  citas.push(newCita)
-  return newCita
-}
-
-// Exportar las colecciones como objetos para compatibilidad con código existente
-export const usuariosDB = usuarios
-export const fichajesDB = fichajes
-export const vacacionesDB = vacaciones
+// Export arrays for compatibility
+export { usuariosDB as usuarios }
+export { fichajesDB as fichajes }
+export { vacacionesDB as vacaciones }
