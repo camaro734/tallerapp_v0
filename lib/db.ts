@@ -991,144 +991,211 @@ export const canManageMaterials = (rol?: string): boolean =>
 import { createClient } from "@supabase/supabase-js"
 
 // Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Check if Supabase is ready
-export function isSupabaseReady(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey && supabase)
+// Check if Supabase is properly configured
+export function isSupabaseConfigured() {
+  return !!(supabaseUrl && supabaseAnonKey)
 }
 
-// Re-export mock data for compatibility
-export const clientesDB = clientes
-export const vehiculosDB = vehiculos
-export const materialesDB = materiales
-export const partesTrabajoDB = partesTrabajo
-export const citasDB = citas
+// Test connection to Supabase
+export async function testSupabaseConnection() {
+  try {
+    const { data, error } = await supabase.from("usuarios").select("count").limit(1)
 
-// Supabase query functions (when ready)
+    return !error
+  } catch (error) {
+    console.error("Supabase connection test failed:", error)
+    return false
+  }
+}
+
+// Export the same data structure as database.ts for compatibility
+export const usuariosDB = [
+  {
+    id: "1",
+    nombre: "Carlos Martínez",
+    email: "carlos@cmghidraulica.com",
+    rol: "admin" as const,
+    telefono: "666123456",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "2",
+    nombre: "Ana García",
+    email: "ana@cmghidraulica.com",
+    rol: "jefe_taller" as const,
+    telefono: "666234567",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "3",
+    nombre: "Miguel López",
+    email: "miguel@cmghidraulica.com",
+    rol: "tecnico" as const,
+    telefono: "666345678",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "4",
+    nombre: "Laura Sánchez",
+    email: "laura@cmghidraulica.com",
+    rol: "recepcion" as const,
+    telefono: "666456789",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: "5",
+    nombre: "David Ruiz",
+    email: "david@cmghidraulica.com",
+    rol: "tecnico" as const,
+    telefono: "666567890",
+    activo: true,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+  },
+]
+
+// Database utility functions
 export async function getUsuariosFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("usuarios").select("*")
+  const { data, error } = await supabase.from("usuarios").select("*")
   if (error) throw error
   return data
 }
 
 export async function getClientesFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("clientes").select("*")
+  const { data, error } = await supabase.from("clientes").select("*")
   if (error) throw error
   return data
 }
 
 export async function getVehiculosFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("vehiculos").select("*")
+  const { data, error } = await supabase.from("vehiculos").select("*")
   if (error) throw error
   return data
 }
 
 export async function getMaterialesFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("materiales").select("*")
+  const { data, error } = await supabase.from("materiales").select("*")
   if (error) throw error
   return data
 }
 
 export async function getPartesTrabajoFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("partes_trabajo").select("*")
+  const { data, error } = await supabase.from("partes_trabajo").select("*")
   if (error) throw error
   return data
 }
 
 export async function getFichajesFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("fichajes").select("*")
+  const { data, error } = await supabase.from("fichajes").select("*")
   if (error) throw error
   return data
 }
 
 export async function getCitasFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("citas").select("*")
+  const { data, error } = await supabase.from("citas").select("*")
   if (error) throw error
   return data
 }
 
 export async function getVacacionesFromSupabase() {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("solicitudes_vacaciones").select("*")
+  const { data, error } = await supabase.from("solicitudes_vacaciones").select("*")
   if (error) throw error
   return data
 }
 
 export async function getUsuarioByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("usuarios").select("*").eq("id", id)
+  const { data, error } = await supabase.from("usuarios").select("*").eq("id", id).single()
   if (error) throw error
   return data
 }
 
 export async function getClienteByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("clientes").select("*").eq("id", id)
+  const { data, error } = await supabase.from("clientes").select("*").eq("id", id).single()
   if (error) throw error
   return data
 }
 
 export async function getVehiculoByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("vehiculos").select("*").eq("id", id)
+  const { data, error } = await supabase.from("vehiculos").select("*").eq("id", id).single()
   if (error) throw error
   return data
 }
 
 export async function getParteTrabajoByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
+  if (!isSupabaseConfigured()) {
     throw new Error("Supabase not configured")
   }
 
-  const { data, error } = await supabase!.from("partes_trabajo").select("*").eq("id", id)
+  const { data, error } = await supabase
+    .from("partes_trabajo")
+    .select(`
+      *,
+      cliente:clientes(*),
+      vehiculo:vehiculos(*),
+      tecnico:usuarios(*)
+    `)
+    .eq("id", id)
+    .single()
   if (error) throw error
   return data
 }
 
-export const usuariosDB = usuarios
 export const fichajesDB = fichajes
 export const vacacionesDB = vacaciones
