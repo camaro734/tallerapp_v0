@@ -1,15 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Clock, User, LogIn, LogOut } from "lucide-react"
+import { Menu, Clock, User, LogIn, LogOut, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getUltimoFichajePresencia, createFichajePresencia } from "@/lib/db"
+import { toast } from "@/hooks/use-toast"
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -58,16 +58,37 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, checkPresenceStatus])
 
-  const handleFichaje = async () => {
+  const handleFichaje = async (tipo: "entrada" | "salida") => {
     if (!user || isLoading) return
 
     setIsLoading(true)
     try {
-      const tipo = isPresent ? "salida" : "entrada"
-      await createFichajePresencia(user.id, tipo)
+      const { data, error } = await createFichajePresencia(user.id, tipo)
+
+      if (error) {
+        throw new Error(error.message || "Error en el fichaje")
+      }
+
       await checkPresenceStatus()
+
+      toast({
+        title: "Fichaje registrado",
+        description: `Has fichado ${tipo === "entrada" ? "la entrada" : "la salida"} correctamente`,
+      })
+
+      // Disparar evento personalizado para sincronizar con otros componentes
+      window.dispatchEvent(
+        new CustomEvent("fichajeUpdated", {
+          detail: { tipo, timestamp: new Date().toISOString() },
+        }),
+      )
     } catch (error) {
       console.error("Error en fichaje:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo registrar el fichaje",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -150,14 +171,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               {lastEntry && <span className="text-blue-200 text-xs">{lastEntry}</span>}
               <Button
                 size="sm"
-                onClick={handleFichaje}
+                onClick={() => handleFichaje(isPresent ? "salida" : "entrada")}
                 disabled={isLoading}
                 className={`h-6 px-2 text-xs ${
                   isPresent ? "bg-red-500 hover:bg-red-600 text-white" : "bg-green-500 hover:bg-green-600 text-white"
                 }`}
               >
                 {isLoading ? (
-                  "..."
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
                   <>
                     {isPresent ? <LogOut className="h-3 w-3 mr-1" /> : <LogIn className="h-3 w-3 mr-1" />}

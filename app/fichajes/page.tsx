@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
-import { Clock, User, Calendar, Play, Square, AlertCircle, CheckCircle } from "lucide-react"
+import { Clock, User, Calendar, Play, Square, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import { usuarios as usuariosDB, fichajes as fichajesDB } from "@/lib/db"
 import type { Usuario, Fichaje } from "@/lib/db"
 import { DatabaseStatus } from "@/components/database-status"
+import { createFichajePresencia, getUltimoFichajePresencia } from "@/lib/db"
 
 export default function FichajesPage() {
   const { user, isLoading } = useAuth()
@@ -28,6 +29,18 @@ export default function FichajesPage() {
     if (user) {
       cargarDatos()
     }
+  }, [user])
+
+  // Escuchar eventos de fichaje desde otros componentes
+  useEffect(() => {
+    const handleFichajeUpdate = () => {
+      if (user) {
+        cargarDatos()
+      }
+    }
+
+    window.addEventListener("fichajeUpdated", handleFichajeUpdate)
+    return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
   }, [user])
 
   const cargarDatos = async () => {
@@ -45,12 +58,11 @@ export default function FichajesPage() {
 
       // Determinar estado de presencia del usuario actual
       if (user) {
-        const fichajesUsuario = fichajesDB
-          .filter((f) => f.usuario_id === user.id && f.tipo === "presencia")
-          .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-
-        if (fichajesUsuario.length > 0) {
-          setEstadoPresencia(fichajesUsuario[0].tipo_fichaje)
+        const { data: lastFichaje } = await getUltimoFichajePresencia(user.id)
+        if (lastFichaje) {
+          setEstadoPresencia(lastFichaje.tipo_fichaje)
+        } else {
+          setEstadoPresencia("salida") // Por defecto ausente
         }
       }
     } catch (error) {
@@ -71,35 +83,26 @@ export default function FichajesPage() {
     setProcesandoFichaje(true)
 
     try {
-      const nuevoFichaje: Omit<Fichaje, "id" | "created_at"> = {
-        usuario_id: user.id,
-        parte_trabajo_id: null,
-        tipo: "presencia",
-        tipo_fichaje: tipo,
-        fecha_hora: new Date().toISOString(),
-        observaciones: `Fichaje de ${tipo} de presencia`,
+      const { data, error } = await createFichajePresencia(user.id, tipo)
+
+      if (error) {
+        throw new Error(error.message || "Error en el fichaje")
       }
 
-      // Simular creación en la base de datos mock
-      const fichajeConId = {
-        ...nuevoFichaje,
-        id: `f${Date.now()}`,
-        created_at: new Date().toISOString(),
-      }
-
-      fichajesDB.push(fichajeConId)
-      setFichajes([...fichajesDB])
       setEstadoPresencia(tipo)
-
-      // Actualizar fichajes de hoy
-      const hoy = new Date().toISOString().split("T")[0]
-      const fichajesDeHoy = fichajesDB.filter((fichaje) => fichaje.fecha_hora.startsWith(hoy))
-      setFichajesHoy(fichajesDeHoy)
+      await cargarDatos()
 
       toast({
         title: "Fichaje registrado",
         description: `Has fichado ${tipo === "entrada" ? "la entrada" : "la salida"} correctamente`,
       })
+
+      // Disparar evento para sincronizar con otros componentes
+      window.dispatchEvent(
+        new CustomEvent("fichajeUpdated", {
+          detail: { tipo, timestamp: new Date().toISOString() },
+        }),
+      )
     } catch (error) {
       console.error("Error en fichaje:", error)
       toast({
@@ -168,6 +171,8 @@ export default function FichajesPage() {
     return <LoginForm />
   }
 
+  const estaPresente = estadoPresencia === "entrada"
+
   return (
     <MainLayout>
       <DatabaseStatus />
@@ -197,42 +202,38 @@ export default function FichajesPage() {
                   <span>{new Date().toLocaleDateString("es-ES")}</span>
                 </div>
                 <Badge
-                  variant={estadoPresencia === "entrada" ? "default" : "secondary"}
-                  className={estadoPresencia === "entrada" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                  variant={estaPresente ? "default" : "secondary"}
+                  className={estaPresente ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
                 >
-                  {estadoPresencia === "entrada" ? "Presente" : "Ausente"}
+                  {estaPresente ? "Presente" : "Ausente"}
                 </Badge>
               </div>
 
               <div className="flex gap-2">
                 <Button
                   onClick={() => handleFichajePresencia("entrada")}
-                  disabled={procesandoFichaje || estadoPresencia === "entrada"}
+                  disabled={procesandoFichaje || estaPresente}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   {procesandoFichaje ? (
-                    "Procesando..."
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      Fichar Entrada
-                    </>
+                    <Play className="h-4 w-4 mr-2" />
                   )}
+                  Fichar Entrada
                 </Button>
                 <Button
                   onClick={() => handleFichajePresencia("salida")}
-                  disabled={procesandoFichaje || estadoPresencia !== "entrada"}
+                  disabled={procesandoFichaje || !estaPresente}
                   variant="outline"
                   className="border-red-300 text-red-700 hover:bg-red-50"
                 >
                   {procesandoFichaje ? (
-                    "Procesando..."
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <>
-                      <Square className="h-4 w-4 mr-2" />
-                      Fichar Salida
-                    </>
+                    <Square className="h-4 w-4 mr-2" />
                   )}
+                  Fichar Salida
                 </Button>
               </div>
             </div>
