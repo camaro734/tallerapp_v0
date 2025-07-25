@@ -2,112 +2,146 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { useAuth } from "@/components/auth-provider"
+import { LoginForm } from "@/components/login-form"
+import { MainLayout } from "@/components/main-layout"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Clock, ArrowLeft, User } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { cn } from "@/lib/utils"
-import { getVehiculos, type Vehiculo } from "@/lib/database"
-import { useAuth } from "@/components/auth-provider"
-import { MainLayout } from "@/components/main-layout"
 import { toast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { ArrowLeft, Calendar, User, Car, Wrench, Phone, Mail, Loader2 } from "lucide-react"
+import { createCita } from "@/lib/db"
 
 export default function NuevaCitaPage() {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Estados del formulario - Cliente manual
+  // Estados del formulario
   const [clienteNombre, setClienteNombre] = useState("")
   const [clienteTelefono, setClienteTelefono] = useState("")
   const [clienteEmail, setClienteEmail] = useState("")
-
-  // Estados del formulario - Vehículo manual
   const [vehiculoMatricula, setVehiculoMatricula] = useState("")
   const [vehiculoMarca, setVehiculoMarca] = useState("")
   const [vehiculoModelo, setVehiculoModelo] = useState("")
-
-  // Estados del formulario - Cita
-  const [fecha, setFecha] = useState<Date>()
+  const [fecha, setFecha] = useState("")
   const [hora, setHora] = useState("")
-  const [duracion, setDuracion] = useState("")
   const [tipoServicio, setTipoServicio] = useState("")
   const [descripcion, setDescripcion] = useState("")
+  const [observaciones, setObservaciones] = useState("")
 
-  useEffect(() => {
-    cargarVehiculos()
-  }, [])
+  const tiposServicio = [
+    "Mantenimiento preventivo",
+    "Reparación",
+    "Revisión técnica",
+    "Instalación",
+    "Diagnóstico",
+    "Emergencia",
+    "Otros",
+  ]
 
-  const cargarVehiculos = async () => {
-    try {
-      const vehiculosResponse = await getVehiculos()
-
-      if (vehiculosResponse.error) {
-        throw new Error(vehiculosResponse.error.message)
-      }
-
-      setVehiculos(vehiculosResponse.data || [])
-    } catch (error) {
-      console.error("Error cargando vehículos:", error)
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los vehículos",
-        variant: "destructive",
-      })
-    }
-  }
+  const horasDisponibles = [
+    "08:00",
+    "08:30",
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "12:00",
+    "12:30",
+    "13:00",
+    "13:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30",
+    "18:00",
+    "18:30",
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!clienteNombre.trim() || !fecha || !hora || !duracion || !tipoServicio) {
+    if (!clienteNombre.trim()) {
       toast({
         title: "Error",
-        description: "Por favor completa todos los campos obligatorios",
+        description: "El nombre del cliente es obligatorio",
         variant: "destructive",
       })
       return
     }
 
-    setLoading(true)
+    if (!fecha) {
+      toast({
+        title: "Error",
+        description: "La fecha es obligatoria",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!hora) {
+      toast({
+        title: "Error",
+        description: "La hora es obligatoria",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!tipoServicio) {
+      toast({
+        title: "Error",
+        description: "El tipo de servicio es obligatorio",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsLoading(true)
 
     try {
-      // Combinar fecha y hora
-      const [horas, minutos] = hora.split(":").map(Number)
-      const fechaHora = new Date(fecha)
-      fechaHora.setHours(horas, minutos, 0, 0)
-
-      const citaData = {
-        cliente_nombre: clienteNombre.trim(),
-        cliente_telefono: clienteTelefono.trim() || undefined,
-        cliente_email: clienteEmail.trim() || undefined,
-        vehiculo_matricula: vehiculoMatricula.trim() || undefined,
-        vehiculo_marca: vehiculoMarca.trim() || undefined,
-        vehiculo_modelo: vehiculoModelo.trim() || undefined,
-        fecha_hora: fechaHora.toISOString(),
-        duracion_estimada: Number.parseInt(duracion),
-        tipo_servicio: tipoServicio,
-        descripcion: descripcion.trim() || undefined,
-        estado: "programada" as const,
-        created_by: user!.id,
+      // Crear el motivo combinando tipo de servicio y descripción
+      let motivoCombinado = tipoServicio
+      if (descripcion.trim()) {
+        motivoCombinado += ` - ${descripcion.trim()}`
       }
 
-      // Aquí iría la llamada a citasDB.create(citaData)
-      // Por ahora simulamos el éxito
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Crear la cita con información del cliente incluida
+      const nuevaCita = await createCita({
+        usuario_id: user!.id,
+        fecha,
+        hora,
+        motivo: motivoCombinado,
+        // Información adicional que se puede almacenar en observaciones
+        observaciones: JSON.stringify({
+          cliente: {
+            nombre: clienteNombre.trim(),
+            telefono: clienteTelefono.trim() || null,
+            email: clienteEmail.trim() || null,
+          },
+          vehiculo: {
+            matricula: vehiculoMatricula.trim() || null,
+            marca: vehiculoMarca.trim() || null,
+            modelo: vehiculoModelo.trim() || null,
+          },
+          observaciones: observaciones.trim() || null,
+        }),
+      })
 
       toast({
-        title: "Éxito",
-        description: "Cita programada correctamente",
+        title: "Cita creada",
+        description: `Cita programada para ${fecha} a las ${hora}`,
       })
 
       router.push("/agenda")
@@ -115,158 +149,162 @@ export default function NuevaCitaPage() {
       console.error("Error creando cita:", error)
       toast({
         title: "Error",
-        description: "No se pudo programar la cita",
+        description: "No se pudo crear la cita",
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const horasDisponibles = Array.from({ length: 10 }, (_, i) => {
-    const hora = 8 + i
-    return `${hora.toString().padStart(2, "0")}:00`
-  })
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (!user) {
+    return <LoginForm />
+  }
 
   return (
     <MainLayout>
-      <div className="container mx-auto p-6 max-w-2xl">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
+      <div className="p-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <Button asChild variant="outline" size="sm" className="mb-4 bg-transparent">
+            <Link href="/agenda">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver a Agenda
+            </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Nueva Cita</h1>
-            <p className="text-gray-600">Programa una nueva cita en la agenda</p>
+            <h1 className="text-3xl font-bold text-gray-900">Nueva Cita</h1>
+            <p className="text-gray-600">Programa una nueva cita de servicio</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Información del Cliente */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Información del Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="cliente-nombre">Nombre del Cliente *</Label>
-                <Input
-                  id="cliente-nombre"
-                  value={clienteNombre}
-                  onChange={(e) => setClienteNombre(e.target.value)}
-                  placeholder="Nombre completo o empresa"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Información del Cliente */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-blue-600" />
+                  Información del Cliente
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="cliente-telefono">Teléfono</Label>
+                  <Label htmlFor="cliente_nombre">Nombre del Cliente *</Label>
                   <Input
-                    id="cliente-telefono"
-                    value={clienteTelefono}
-                    onChange={(e) => setClienteTelefono(e.target.value)}
-                    placeholder="666123456"
-                    type="tel"
+                    id="cliente_nombre"
+                    value={clienteNombre}
+                    onChange={(e) => setClienteNombre(e.target.value)}
+                    placeholder="Nombre completo o empresa"
+                    required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cliente-email">Email</Label>
-                  <Input
-                    id="cliente-email"
-                    value={clienteEmail}
-                    onChange={(e) => setClienteEmail(e.target.value)}
-                    placeholder="cliente@email.com"
-                    type="email"
-                  />
+                  <Label htmlFor="cliente_telefono">Teléfono</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="cliente_telefono"
+                      value={clienteTelefono}
+                      onChange={(e) => setClienteTelefono(e.target.value)}
+                      placeholder="666 123 456"
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Información del Vehículo */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Información del Vehículo (Opcional)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="vehiculo-matricula">Matrícula</Label>
+                  <Label htmlFor="cliente_email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="cliente_email"
+                      type="email"
+                      value={clienteEmail}
+                      onChange={(e) => setClienteEmail(e.target.value)}
+                      placeholder="cliente@ejemplo.com"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Información del Vehículo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Car className="h-5 w-5 text-blue-600" />
+                  Información del Vehículo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="vehiculo_matricula">Matrícula</Label>
                   <Input
-                    id="vehiculo-matricula"
+                    id="vehiculo_matricula"
                     value={vehiculoMatricula}
-                    onChange={(e) => setVehiculoMatricula(e.target.value)}
+                    onChange={(e) => setVehiculoMatricula(e.target.value.toUpperCase())}
                     placeholder="1234ABC"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="vehiculo-marca">Marca</Label>
+                  <Label htmlFor="vehiculo_marca">Marca</Label>
                   <Input
-                    id="vehiculo-marca"
+                    id="vehiculo_marca"
                     value={vehiculoMarca}
                     onChange={(e) => setVehiculoMarca(e.target.value)}
-                    placeholder="HIAB, Zepro, etc."
+                    placeholder="Mercedes, Volvo, Scania..."
                   />
                 </div>
                 <div>
-                  <Label htmlFor="vehiculo-modelo">Modelo</Label>
+                  <Label htmlFor="vehiculo_modelo">Modelo</Label>
                   <Input
-                    id="vehiculo-modelo"
+                    id="vehiculo_modelo"
                     value={vehiculoModelo}
                     onChange={(e) => setVehiculoModelo(e.target.value)}
-                    placeholder="Xi166, ZS200, etc."
+                    placeholder="Actros, FH, R450..."
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Información de la Cita */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
-                Información de la Cita
+                <Calendar className="h-5 w-5 text-blue-600" />
+                Programación de la Cita
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Fecha y Hora */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <Label>Fecha *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn("w-full justify-start text-left font-normal", !fecha && "text-muted-foreground")}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {fecha ? format(fecha, "PPP", { locale: es }) : "Selecciona una fecha"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={fecha}
-                        onSelect={setFecha}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label htmlFor="fecha">Fecha *</Label>
+                  <Input
+                    id="fecha"
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    required
+                  />
                 </div>
-
                 <div>
                   <Label htmlFor="hora">Hora *</Label>
                   <Select value={hora} onValueChange={setHora} required>
                     <SelectTrigger>
-                      <Clock className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Selecciona la hora" />
+                      <SelectValue placeholder="Seleccionar hora" />
                     </SelectTrigger>
                     <SelectContent>
                       {horasDisponibles.map((horaDisponible) => (
@@ -277,65 +315,74 @@ export default function NuevaCitaPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              {/* Duración y Tipo de Servicio */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="duracion">Duración (minutos) *</Label>
-                  <Select value={duracion} onValueChange={setDuracion} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Duración estimada" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 minutos</SelectItem>
-                      <SelectItem value="60">1 hora</SelectItem>
-                      <SelectItem value="90">1.5 horas</SelectItem>
-                      <SelectItem value="120">2 horas</SelectItem>
-                      <SelectItem value="180">3 horas</SelectItem>
-                      <SelectItem value="240">4 horas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="tipoServicio">Tipo de Servicio *</Label>
+                  <Label htmlFor="tipo_servicio">Tipo de Servicio *</Label>
                   <Select value={tipoServicio} onValueChange={setTipoServicio} required>
                     <SelectTrigger>
-                      <SelectValue placeholder="Tipo de servicio" />
+                      <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="revision">Revisión</SelectItem>
-                      <SelectItem value="reparacion">Reparación</SelectItem>
-                      <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
-                      <SelectItem value="instalacion">Instalación</SelectItem>
-                      <SelectItem value="diagnostico">Diagnóstico</SelectItem>
-                      <SelectItem value="presupuesto">Presupuesto</SelectItem>
+                      {tiposServicio.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {tipo}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Descripción */}
+          {/* Detalles del Servicio */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-blue-600" />
+                Detalles del Servicio
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="descripcion">Descripción</Label>
-                <Input
+                <Label htmlFor="descripcion">Descripción del Trabajo</Label>
+                <Textarea
                   id="descripcion"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Descripción breve del servicio..."
+                  placeholder="Describe el trabajo a realizar, problema reportado, etc..."
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="observaciones">Observaciones Adicionales</Label>
+                <Textarea
+                  id="observaciones"
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                  placeholder="Notas adicionales, instrucciones especiales, etc..."
+                  rows={2}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Botones */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+          {/* Botones de Acción */}
+          <div className="flex justify-end gap-4 pt-6 border-t">
+            <Button type="button" variant="outline" onClick={() => router.push("/agenda")} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-              {loading ? "Programando..." : "Programar Cita"}
+            <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                <>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Crear Cita
+                </>
+              )}
             </Button>
           </div>
         </form>
