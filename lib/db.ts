@@ -986,95 +986,33 @@ export const canManageClients = (rol?: string): boolean => !!rol && ["admin", "j
 
 export const canManageMaterials = (rol?: string): boolean =>
   !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
-
-// Connection status
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "./supabase-client"
 
 // Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 // Check if Supabase is properly configured
-export function isSupabaseConfigured() {
+export const isSupabaseReady = (): boolean => {
   return !!(supabaseUrl && supabaseAnonKey)
 }
 
-// Check if Supabase is ready (alias for isSupabaseConfigured for compatibility)
-export function isSupabaseReady(): boolean {
-  return isSupabaseConfigured()
-}
-
-// Test connection to Supabase
-export async function testSupabaseConnection() {
+// Test Supabase connection
+export const testSupabaseConnection = async () => {
   try {
     const { data, error } = await supabase.from("usuarios").select("count").limit(1)
-
-    return !error
+    return { connected: !error, error }
   } catch (error) {
-    console.error("Supabase connection test failed:", error)
-    return false
+    return { connected: false, error }
   }
 }
 
-// Export the same data structure as database.ts for compatibility
-export const usuariosDB = [
-  {
-    id: "1",
-    nombre: "Carlos Martínez",
-    email: "carlos@cmghidraulica.com",
-    rol: "admin" as const,
-    telefono: "666123456",
-    activo: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "2",
-    nombre: "Ana García",
-    email: "ana@cmghidraulica.com",
-    rol: "jefe_taller" as const,
-    telefono: "666234567",
-    activo: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "3",
-    nombre: "Miguel López",
-    email: "miguel@cmghidraulica.com",
-    rol: "tecnico" as const,
-    telefono: "666345678",
-    activo: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "4",
-    nombre: "Laura Sánchez",
-    email: "laura@cmghidraulica.com",
-    rol: "recepcion" as const,
-    telefono: "666456789",
-    activo: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "5",
-    nombre: "David Ruiz",
-    email: "david@cmghidraulica.com",
-    rol: "tecnico" as const,
-    telefono: "666567890",
-    activo: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  },
-]
+// Export all database functions from supabase-client
+export * from "./supabase-client"
 
 // Database utility functions
 export async function getUsuariosFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1084,7 +1022,7 @@ export async function getUsuariosFromSupabase() {
 }
 
 export async function getClientesFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1094,7 +1032,7 @@ export async function getClientesFromSupabase() {
 }
 
 export async function getVehiculosFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1104,7 +1042,7 @@ export async function getVehiculosFromSupabase() {
 }
 
 export async function getMaterialesFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1114,7 +1052,7 @@ export async function getMaterialesFromSupabase() {
 }
 
 export async function getPartesTrabajoFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1124,7 +1062,7 @@ export async function getPartesTrabajoFromSupabase() {
 }
 
 export async function getFichajesFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1134,7 +1072,7 @@ export async function getFichajesFromSupabase() {
 }
 
 export async function getCitasFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1144,7 +1082,7 @@ export async function getCitasFromSupabase() {
 }
 
 export async function getVacacionesFromSupabase() {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1154,7 +1092,7 @@ export async function getVacacionesFromSupabase() {
 }
 
 export async function getUsuarioByIdFromSupabase(id: string) {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1164,7 +1102,7 @@ export async function getUsuarioByIdFromSupabase(id: string) {
 }
 
 export async function getClienteByIdFromSupabase(id: string) {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1174,7 +1112,7 @@ export async function getClienteByIdFromSupabase(id: string) {
 }
 
 export async function getVehiculoByIdFromSupabase(id: string) {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
@@ -1184,7 +1122,7 @@ export async function getVehiculoByIdFromSupabase(id: string) {
 }
 
 export async function getParteTrabajoByIdFromSupabase(id: string) {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseReady()) {
     throw new Error("Supabase not configured")
   }
 
