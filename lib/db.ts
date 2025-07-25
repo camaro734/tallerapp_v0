@@ -1001,6 +1001,11 @@ export function isSupabaseConfigured() {
   return !!(supabaseUrl && supabaseAnonKey)
 }
 
+// Check if Supabase is ready (alias for isSupabaseConfigured for compatibility)
+export function isSupabaseReady(): boolean {
+  return isSupabaseConfigured()
+}
+
 // Test connection to Supabase
 export async function testSupabaseConnection() {
   try {
