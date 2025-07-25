@@ -10,11 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Clock, ArrowLeft } from "lucide-react"
+import { CalendarIcon, Clock, ArrowLeft, User } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { getClientes, getVehiculos, type Cliente, type Vehiculo } from "@/lib/database"
+import { getVehiculos, type Vehiculo } from "@/lib/database"
 import { useAuth } from "@/components/auth-provider"
 import { MainLayout } from "@/components/main-layout"
 import { toast } from "@/hooks/use-toast"
@@ -24,13 +24,19 @@ export default function NuevaCitaPage() {
   const { user } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [clientes, setClientes] = useState<Cliente[]>([])
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
-  const [vehiculosFiltrados, setVehiculosFiltrados] = useState<Vehiculo[]>([])
 
-  // Estados del formulario
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<string>("")
-  const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<string>("")
+  // Estados del formulario - Cliente manual
+  const [clienteNombre, setClienteNombre] = useState("")
+  const [clienteTelefono, setClienteTelefono] = useState("")
+  const [clienteEmail, setClienteEmail] = useState("")
+
+  // Estados del formulario - Vehículo manual
+  const [vehiculoMatricula, setVehiculoMatricula] = useState("")
+  const [vehiculoMarca, setVehiculoMarca] = useState("")
+  const [vehiculoModelo, setVehiculoModelo] = useState("")
+
+  // Estados del formulario - Cita
   const [fecha, setFecha] = useState<Date>()
   const [hora, setHora] = useState("")
   const [duracion, setDuracion] = useState("")
@@ -38,55 +44,32 @@ export default function NuevaCitaPage() {
   const [descripcion, setDescripcion] = useState("")
 
   useEffect(() => {
-    cargarDatos()
+    cargarVehiculos()
   }, [])
 
-  useEffect(() => {
-    if (clienteSeleccionado) {
-      cargarVehiculosCliente(clienteSeleccionado)
-    } else {
-      setVehiculosFiltrados([])
-      setVehiculoSeleccionado("")
-    }
-  }, [clienteSeleccionado])
-
-  const cargarDatos = async () => {
+  const cargarVehiculos = async () => {
     try {
-      const [clientesResponse, vehiculosResponse] = await Promise.all([getClientes(), getVehiculos()])
+      const vehiculosResponse = await getVehiculos()
 
-      if (clientesResponse.error) {
-        throw new Error(clientesResponse.error.message)
-      }
       if (vehiculosResponse.error) {
         throw new Error(vehiculosResponse.error.message)
       }
 
-      setClientes(clientesResponse.data || [])
       setVehiculos(vehiculosResponse.data || [])
     } catch (error) {
-      console.error("Error cargando datos:", error)
+      console.error("Error cargando vehículos:", error)
       toast({
         title: "Error",
-        description: "No se pudieron cargar los datos necesarios",
+        description: "No se pudieron cargar los vehículos",
         variant: "destructive",
       })
-    }
-  }
-
-  const cargarVehiculosCliente = async (clienteId: string) => {
-    try {
-      const vehiculosCliente = vehiculos.filter((v) => v.cliente_id === clienteId)
-      setVehiculosFiltrados(vehiculosCliente)
-    } catch (error) {
-      console.error("Error cargando vehículos:", error)
-      setVehiculosFiltrados([])
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!clienteSeleccionado || !fecha || !hora || !duracion || !tipoServicio) {
+    if (!clienteNombre.trim() || !fecha || !hora || !duracion || !tipoServicio) {
       toast({
         title: "Error",
         description: "Por favor completa todos los campos obligatorios",
@@ -104,8 +87,12 @@ export default function NuevaCitaPage() {
       fechaHora.setHours(horas, minutos, 0, 0)
 
       const citaData = {
-        cliente_id: clienteSeleccionado,
-        vehiculo_id: vehiculoSeleccionado || undefined,
+        cliente_nombre: clienteNombre.trim(),
+        cliente_telefono: clienteTelefono.trim() || undefined,
+        cliente_email: clienteEmail.trim() || undefined,
+        vehiculo_matricula: vehiculoMatricula.trim() || undefined,
+        vehiculo_marca: vehiculoMarca.trim() || undefined,
+        vehiculo_modelo: vehiculoModelo.trim() || undefined,
         fecha_hora: fechaHora.toISOString(),
         duracion_estimada: Number.parseInt(duracion),
         tipo_servicio: tipoServicio,
@@ -155,62 +142,99 @@ export default function NuevaCitaPage() {
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Información de la Cita
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Cliente */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Información del Cliente */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Información del Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="cliente">Cliente *</Label>
-                <Select value={clienteSeleccionado} onValueChange={setClienteSeleccionado} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientes.map((cliente) => (
-                      <SelectItem key={cliente.id} value={cliente.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{cliente.nombre}</span>
-                          {cliente.telefono && <span className="text-sm text-gray-500">{cliente.telefono}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="cliente-nombre">Nombre del Cliente *</Label>
+                <Input
+                  id="cliente-nombre"
+                  value={clienteNombre}
+                  onChange={(e) => setClienteNombre(e.target.value)}
+                  placeholder="Nombre completo o empresa"
+                  required
+                />
               </div>
 
-              {/* Vehículo */}
-              <div>
-                <Label htmlFor="vehiculo">Vehículo</Label>
-                <Select
-                  value={vehiculoSeleccionado}
-                  onValueChange={setVehiculoSeleccionado}
-                  disabled={!clienteSeleccionado}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un vehículo (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehiculosFiltrados.map((vehiculo) => (
-                      <SelectItem key={vehiculo.id} value={vehiculo.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{vehiculo.matricula}</span>
-                          <span className="text-sm text-gray-500">
-                            {vehiculo.marca} {vehiculo.modelo}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!clienteSeleccionado && <p className="text-sm text-gray-500 mt-1">Selecciona primero un cliente</p>}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="cliente-telefono">Teléfono</Label>
+                  <Input
+                    id="cliente-telefono"
+                    value={clienteTelefono}
+                    onChange={(e) => setClienteTelefono(e.target.value)}
+                    placeholder="666123456"
+                    type="tel"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cliente-email">Email</Label>
+                  <Input
+                    id="cliente-email"
+                    value={clienteEmail}
+                    onChange={(e) => setClienteEmail(e.target.value)}
+                    placeholder="cliente@email.com"
+                    type="email"
+                  />
+                </div>
               </div>
+            </CardContent>
+          </Card>
 
+          {/* Información del Vehículo */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Información del Vehículo (Opcional)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="vehiculo-matricula">Matrícula</Label>
+                  <Input
+                    id="vehiculo-matricula"
+                    value={vehiculoMatricula}
+                    onChange={(e) => setVehiculoMatricula(e.target.value)}
+                    placeholder="1234ABC"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="vehiculo-marca">Marca</Label>
+                  <Input
+                    id="vehiculo-marca"
+                    value={vehiculoMarca}
+                    onChange={(e) => setVehiculoMarca(e.target.value)}
+                    placeholder="HIAB, Zepro, etc."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="vehiculo-modelo">Modelo</Label>
+                  <Input
+                    id="vehiculo-modelo"
+                    value={vehiculoModelo}
+                    onChange={(e) => setVehiculoModelo(e.target.value)}
+                    placeholder="Xi166, ZS200, etc."
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Información de la Cita */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                Información de la Cita
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
               {/* Fecha y Hora */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -302,19 +326,19 @@ export default function NuevaCitaPage() {
                   placeholder="Descripción breve del servicio..."
                 />
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Botones */}
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-                  {loading ? "Programando..." : "Programar Cita"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Botones */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+              {loading ? "Programando..." : "Programar Cita"}
+            </Button>
+          </div>
+        </form>
       </div>
     </MainLayout>
   )
