@@ -171,10 +171,10 @@ export const testSupabaseConnection = async () => {
   }
 }
 
-// Mock users data
+// Mock users data with proper UUIDs
 export const usuarios: Usuario[] = [
   {
-    id: "admin",
+    id: "11111111-1111-1111-1111-111111111111",
     email: "admin@cmghidraulica.com",
     nombre: "Carlos",
     apellidos: "Martín Ruiz",
@@ -186,7 +186,7 @@ export const usuarios: Usuario[] = [
     updated_at: "2022-06-01T09:00:00Z",
   },
   {
-    id: "user1",
+    id: "22222222-2222-2222-2222-222222222222",
     email: "juan.perez@cmghidraulica.com",
     nombre: "Juan",
     apellidos: "Pérez García",
@@ -198,7 +198,7 @@ export const usuarios: Usuario[] = [
     updated_at: "2023-01-15T09:00:00Z",
   },
   {
-    id: "user2",
+    id: "33333333-3333-3333-3333-333333333333",
     email: "maria.gonzalez@cmghidraulica.com",
     nombre: "María",
     apellidos: "González López",
@@ -210,7 +210,7 @@ export const usuarios: Usuario[] = [
     updated_at: "2023-03-01T09:00:00Z",
   },
   {
-    id: "jefe1",
+    id: "44444444-4444-4444-4444-444444444444",
     email: "supervisor@cmghidraulica.com",
     nombre: "Ana",
     apellidos: "Rodríguez Sánchez",
@@ -222,7 +222,7 @@ export const usuarios: Usuario[] = [
     updated_at: "2022-09-15T09:00:00Z",
   },
   {
-    id: "recep1",
+    id: "55555555-5555-5555-5555-555555555555",
     email: "recepcion@cmghidraulica.com",
     nombre: "Laura",
     apellidos: "Fernández Torres",
@@ -238,7 +238,7 @@ export const usuarios: Usuario[] = [
 // Mock data
 export const clientes: Cliente[] = [
   {
-    id: "1",
+    id: "c1111111-1111-1111-1111-111111111111",
     nombre: "Transportes García S.L.",
     cif: "B12345678",
     telefono: "666123456",
@@ -250,7 +250,7 @@ export const clientes: Cliente[] = [
     updated_at: "2024-01-15T10:00:00Z",
   },
   {
-    id: "2",
+    id: "c2222222-2222-2222-2222-222222222222",
     nombre: "Logística Martínez",
     cif: "B87654321",
     telefono: "666654321",
@@ -262,7 +262,7 @@ export const clientes: Cliente[] = [
     updated_at: "2024-01-16T11:30:00Z",
   },
   {
-    id: "3",
+    id: "c3333333-3333-3333-3333-333333333333",
     nombre: "Construcciones López",
     cif: "B11223344",
     telefono: "666789012",
@@ -277,8 +277,8 @@ export const clientes: Cliente[] = [
 
 export const vehiculos: Vehiculo[] = [
   {
-    id: "1",
-    cliente_id: "1",
+    id: "v1111111-1111-1111-1111-111111111111",
+    cliente_id: "c1111111-1111-1111-1111-111111111111",
     matricula: "1234ABC",
     marca: "Mercedes",
     modelo: "Actros",
@@ -289,8 +289,8 @@ export const vehiculos: Vehiculo[] = [
     updated_at: "2024-01-15T10:30:00Z",
   },
   {
-    id: "2",
-    cliente_id: "1",
+    id: "v2222222-2222-2222-2222-222222222222",
+    cliente_id: "c1111111-1111-1111-1111-111111111111",
     matricula: "5678DEF",
     marca: "Volvo",
     modelo: "FH",
@@ -301,8 +301,8 @@ export const vehiculos: Vehiculo[] = [
     updated_at: "2024-01-15T10:45:00Z",
   },
   {
-    id: "3",
-    cliente_id: "2",
+    id: "v3333333-3333-3333-3333-333333333333",
+    cliente_id: "c2222222-2222-2222-2222-222222222222",
     matricula: "9012GHI",
     marca: "Scania",
     modelo: "R450",
@@ -316,11 +316,11 @@ export const vehiculos: Vehiculo[] = [
 
 export const partesTrabajo: ParteTrabajo[] = [
   {
-    id: "1",
+    id: "p1111111-1111-1111-1111-111111111111",
     numero_parte: "PT-2024-001",
-    cliente_id: "1",
+    cliente_id: "c1111111-1111-1111-1111-111111111111",
     cliente_nombre: "Transportes García S.L.",
-    vehiculo_id: "1",
+    vehiculo_id: "v1111111-1111-1111-1111-111111111111",
     vehiculo_matricula: "1234ABC",
     vehiculo_marca: "HIAB",
     vehiculo_modelo: "Xi166",
@@ -334,7 +334,7 @@ export const partesTrabajo: ParteTrabajo[] = [
     fecha_inicio: "2024-01-20T09:00:00Z",
     fecha_fin: "2024-01-20T12:00:00Z",
     tiempo_total: 180,
-    created_by: "user1",
+    created_by: "22222222-2222-2222-2222-222222222222",
     firma_cliente:
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
     dni_cliente: "12345678A",
@@ -351,11 +351,11 @@ export const partesTrabajo: ParteTrabajo[] = [
     updated_at: "2024-01-20T12:00:00Z",
   },
   {
-    id: "2",
+    id: "p2222222-2222-2222-2222-222222222222",
     numero_parte: "PT-2024-002",
-    cliente_id: "2",
+    cliente_id: "c2222222-2222-2222-2222-222222222222",
     cliente_nombre: "Logística Martínez",
-    vehiculo_id: "3",
+    vehiculo_id: "v3333333-3333-3333-3333-333333333333",
     vehiculo_matricula: "9012GHI",
     vehiculo_marca: "Zepro",
     vehiculo_modelo: "ZS200",
@@ -369,7 +369,7 @@ export const partesTrabajo: ParteTrabajo[] = [
     fecha_inicio: "2024-01-21T11:00:00Z",
     fecha_fin: null,
     tiempo_total: null,
-    created_by: "user2",
+    created_by: "33333333-3333-3333-3333-333333333333",
     firma_cliente: null,
     dni_cliente: null,
     fotos_adjuntas: [
@@ -392,9 +392,9 @@ export const partesTrabajo: ParteTrabajo[] = [
     updated_at: "2024-01-21T11:00:00Z",
   },
   {
-    id: "3",
+    id: "p3333333-3333-3333-3333-333333333333",
     numero_parte: "PT-2024-003",
-    cliente_id: "3",
+    cliente_id: "c3333333-3333-3333-3333-333333333333",
     cliente_nombre: "Construcciones López",
     vehiculo_id: null,
     vehiculo_matricula: "3456JKL",
@@ -410,7 +410,7 @@ export const partesTrabajo: ParteTrabajo[] = [
     fecha_inicio: null,
     fecha_fin: null,
     tiempo_total: null,
-    created_by: "user1",
+    created_by: "22222222-2222-2222-2222-222222222222",
     firma_cliente: null,
     dni_cliente: null,
     fotos_adjuntas: [],
@@ -421,7 +421,7 @@ export const partesTrabajo: ParteTrabajo[] = [
 
 export const personal: Personal[] = [
   {
-    id: "user1",
+    id: "22222222-2222-2222-2222-222222222222",
     nombre: "Juan",
     apellidos: "Pérez García",
     dni: "12345678A",
@@ -434,7 +434,7 @@ export const personal: Personal[] = [
     updated_at: "2023-01-15T09:00:00Z",
   },
   {
-    id: "user2",
+    id: "33333333-3333-3333-3333-333333333333",
     nombre: "María",
     apellidos: "González López",
     dni: "87654321B",
@@ -447,7 +447,7 @@ export const personal: Personal[] = [
     updated_at: "2023-03-01T09:00:00Z",
   },
   {
-    id: "admin",
+    id: "11111111-1111-1111-1111-111111111111",
     nombre: "Carlos",
     apellidos: "Martín Ruiz",
     dni: "11223344C",
@@ -463,9 +463,9 @@ export const personal: Personal[] = [
 
 export const fichajes: Fichaje[] = [
   {
-    id: "1",
-    usuario_id: "user1",
-    parte_trabajo_id: "1",
+    id: "f1111111-1111-1111-1111-111111111111",
+    usuario_id: "22222222-2222-2222-2222-222222222222",
+    parte_trabajo_id: "p1111111-1111-1111-1111-111111111111",
     tipo: "trabajo",
     tipo_fichaje: "entrada",
     fecha_hora: "2024-01-25T08:00:00Z",
@@ -473,8 +473,8 @@ export const fichajes: Fichaje[] = [
     created_at: "2024-01-25T08:00:00Z",
   },
   {
-    id: "2",
-    usuario_id: "user2",
+    id: "f2222222-2222-2222-2222-222222222222",
+    usuario_id: "33333333-3333-3333-3333-333333333333",
     parte_trabajo_id: null,
     tipo: "presencia",
     tipo_fichaje: "entrada",
@@ -483,9 +483,9 @@ export const fichajes: Fichaje[] = [
     created_at: "2024-01-25T08:30:00Z",
   },
   {
-    id: "3",
-    usuario_id: "user1",
-    parte_trabajo_id: "1",
+    id: "f3333333-3333-3333-3333-333333333333",
+    usuario_id: "22222222-2222-2222-2222-222222222222",
+    parte_trabajo_id: "p1111111-1111-1111-1111-111111111111",
     tipo: "trabajo",
     tipo_fichaje: "salida",
     fecha_hora: "2024-01-25T12:00:00Z",
@@ -496,22 +496,22 @@ export const fichajes: Fichaje[] = [
 
 export const vacaciones: Vacacion[] = [
   {
-    id: "1",
-    user_id: "user1",
+    id: "va111111-1111-1111-1111-111111111111",
+    user_id: "22222222-2222-2222-2222-222222222222",
     fecha_inicio: "2024-02-15",
     fecha_fin: "2024-02-25",
     dias_solicitados: 8,
     tipo: "vacaciones",
     estado: "aprobada",
     motivo: "Vacaciones de invierno",
-    aprobada_por: "admin",
+    aprobada_por: "11111111-1111-1111-1111-111111111111",
     fecha_aprobacion: "2024-01-20T10:00:00Z",
     created_at: "2024-01-18T14:00:00Z",
     updated_at: "2024-01-20T10:00:00Z",
   },
   {
-    id: "2",
-    user_id: "user2",
+    id: "va222222-2222-2222-2222-222222222222",
+    user_id: "33333333-3333-3333-3333-333333333333",
     fecha_inicio: "2024-03-01",
     fecha_fin: "2024-03-01",
     dias_solicitados: 1,
@@ -527,7 +527,7 @@ export const vacaciones: Vacacion[] = [
 
 export const materiales: Material[] = [
   {
-    id: "1",
+    id: "m1111111-1111-1111-1111-111111111111",
     codigo: "HID-001",
     nombre: "Aceite hidráulico ISO 46",
     descripcion: "Aceite hidráulico de alta calidad para sistemas de grúas",
@@ -541,7 +541,7 @@ export const materiales: Material[] = [
     updated_at: "2024-01-20T15:30:00Z",
   },
   {
-    id: "2",
+    id: "m2222222-2222-2222-2222-222222222222",
     codigo: "SEL-002",
     nombre: "Kit sellos cilindro 80mm",
     descripcion: "Kit completo de sellos para cilindro hidráulico de 80mm",
@@ -555,7 +555,7 @@ export const materiales: Material[] = [
     updated_at: "2024-01-22T09:45:00Z",
   },
   {
-    id: "3",
+    id: "m3333333-3333-3333-3333-333333333333",
     codigo: "VAL-003",
     nombre: "Válvula direccional 4/3",
     descripcion: "Válvula direccional 4/3 vías para control de grúa",
@@ -572,8 +572,8 @@ export const materiales: Material[] = [
 
 export const citas: Cita[] = [
   {
-    id: "1",
-    usuario_id: "user1",
+    id: "ci111111-1111-1111-1111-111111111111",
+    usuario_id: "22222222-2222-2222-2222-222222222222",
     fecha: "2024-02-01",
     hora: "09:00",
     motivo: "Revisión de vehículo",
@@ -581,8 +581,8 @@ export const citas: Cita[] = [
     updated_at: "2024-01-20T08:00:00Z",
   },
   {
-    id: "2",
-    usuario_id: "user2",
+    id: "ci222222-2222-2222-2222-222222222222",
+    usuario_id: "33333333-3333-3333-3333-333333333333",
     fecha: "2024-02-02",
     hora: "10:00",
     motivo: "Mantenimiento preventivo",
@@ -608,16 +608,16 @@ export const authenticateUser = async (email: string, password?: string) => {
 
     switch (email) {
       case "admin@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "admin")
+        user = usuarios.find((u) => u.id === "11111111-1111-1111-1111-111111111111")
         break
       case "jefe@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "jefe1")
+        user = usuarios.find((u) => u.id === "44444444-4444-4444-4444-444444444444")
         break
       case "juan@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "user1")
+        user = usuarios.find((u) => u.id === "22222222-2222-2222-2222-222222222222")
         break
       case "maria@cmgplataformas.com":
-        user = usuarios.find((u) => u.id === "user2")
+        user = usuarios.find((u) => u.id === "33333333-3333-3333-3333-333333333333")
         break
     }
 
@@ -716,7 +716,7 @@ export async function createFichaje(fichaje: {
 }) {
   if (!isSupabaseReady()) {
     const newFichaje: Fichaje = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: `f${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...fichaje,
       fecha_hora: new Date().toISOString(),
       created_at: new Date().toISOString(),
@@ -788,9 +788,13 @@ export const getUltimoFichajePresencia = async (userId: string) => {
     .eq("tipo", "presencia")
     .order("fecha_hora", { ascending: false })
     .limit(1)
-    .single()
 
-  return { data: data || null, error }
+  if (error) {
+    console.error("Error fetching ultimo fichaje presencia:", error)
+    return { data: null, error }
+  }
+
+  return { data: data && data.length > 0 ? data[0] : null, error: null }
 }
 
 export const createFichajePresencia = async (userId: string, tipoFichaje: "entrada" | "salida") => {
@@ -843,7 +847,7 @@ export async function createCita(cita: {
 }) {
   if (!isSupabaseReady()) {
     const newCita: Cita = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: `ci${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       usuario_id: cita.created_by,
       fecha: cita.fecha_hora.split("T")[0],
       hora: cita.fecha_hora.split("T")[1].substring(0, 5),

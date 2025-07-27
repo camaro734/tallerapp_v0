@@ -27,7 +27,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   }, [])
 
   const checkPresenceStatus = useCallback(async () => {
-    if (!user) return
+    if (!user?.id) return
 
     try {
       const { data: lastFichaje, error } = await getUltimoFichajePresencia(user.id)
@@ -53,13 +53,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   }, [user])
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       checkPresenceStatus()
     }
   }, [user, checkPresenceStatus])
 
   const handleFichaje = async (tipo: "entrada" | "salida") => {
-    if (!user || isLoading) return
+    if (!user?.id || isLoading) return
 
     setIsLoading(true)
     try {

@@ -2,266 +2,211 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { LoginForm } from "@/components/login-form"
 import { MainLayout } from "@/components/main-layout"
+import { FichajePresencia } from "@/components/fichaje-presencia"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { toast } from "@/hooks/use-toast"
-import { Clock, User, Play, Square, Loader2, Calendar, FileText } from "lucide-react"
-import { getFichajesUsuario, getUltimoFichajePresencia, createFichajePresencia, getEstadoPresencia } from "@/lib/db"
-
-interface Fichaje {
-  id: string
-  fecha_hora: string
-  tipo_fichaje: "entrada" | "salida"
-  usuario_id: string
-  usuario?: {
-    nombre: string
-  }
-}
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { CalendarIcon, Clock, FileText, User } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { getFichajesUsuario, type Fichaje } from "@/lib/db"
 
 export default function FichajesPage() {
-  const { user, isLoading } = useAuth()
+  const { user } = useAuth()
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [fichajes, setFichajes] = useState<Fichaje[]>([])
-  const [estadoPresencia, setEstadoPresencia] = useState<"presente" | "ausente">("ausente")
-  const [isLoadingFichaje, setIsLoadingFichaje] = useState(false)
-  const [ultimoFichaje, setUltimoFichaje] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const cargarFichajes = async (fecha: Date) => {
+    if (!user?.id) return
+
+    setIsLoading(true)
+    try {
+      const fechaStr = format(fecha, "yyyy-MM-dd")
+      const { data } = await getFichajesUsuario(user.id, fechaStr)
+      setFichajes(data || [])
+    } catch (error) {
+      console.error("Error cargando fichajes:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (user) {
-      cargarFichajes()
-      cargarEstadoPresencia()
+    if (user?.id) {
+      cargarFichajes(selectedDate)
     }
-  }, [user])
+  }, [user, selectedDate])
 
-  // Escuchar eventos de fichaje desde otros componentes
+  // Escuchar eventos de fichaje para recargar
   useEffect(() => {
     const handleFichajeUpdate = () => {
-      if (user) {
-        cargarFichajes()
-        cargarEstadoPresencia()
-      }
+      cargarFichajes(selectedDate)
     }
 
     window.addEventListener("fichajeUpdated", handleFichajeUpdate)
     return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
-  }, [user])
+  }, [selectedDate])
 
-  const cargarFichajes = async () => {
-    if (!user) return
+  const getTipoFichajeBadge = (fichaje: Fichaje) => {
+    const isEntrada = fichaje.tipo_fichaje === "entrada"
+    const isPresencia = fichaje.tipo === "presencia"
 
-    try {
-      const hoy = new Date().toISOString().split("T")[0]
-      const { data } = await getFichajesUsuario(user.id, hoy)
-      if (data) {
-        setFichajes(data)
-      }
-    } catch (error) {
-      console.error("Error cargando fichajes:", error)
-    }
-  }
-
-  const cargarEstadoPresencia = async () => {
-    if (!user) return
-
-    try {
-      const estado = await getEstadoPresencia(user.id)
-      setEstadoPresencia(estado)
-
-      const { data: fichaje } = await getUltimoFichajePresencia(user.id)
-      if (fichaje) {
-        setUltimoFichaje(fichaje.fecha_hora)
-      }
-    } catch (error) {
-      console.error("Error cargando estado de presencia:", error)
-    }
-  }
-
-  const handleFichajePresencia = async (tipo: "entrada" | "salida") => {
-    if (!user) return
-
-    setIsLoadingFichaje(true)
-
-    try {
-      const result = await createFichajePresencia(user.id, tipo)
-
-      if (!result.success) {
-        throw new Error(result.error || "Error en el fichaje")
-      }
-
-      setEstadoPresencia(tipo === "entrada" ? "presente" : "ausente")
-      setUltimoFichaje(new Date().toISOString())
-      await cargarFichajes()
-
-      toast({
-        title: "Fichaje registrado",
-        description: `Has fichado ${tipo === "entrada" ? "la entrada" : "la salida"} correctamente`,
-      })
-
-      // Disparar evento para sincronizar con otros componentes
-      window.dispatchEvent(
-        new CustomEvent("fichajeUpdated", {
-          detail: { tipo, timestamp: new Date().toISOString() },
-        }),
-      )
-    } catch (error) {
-      console.error("Error en fichaje de presencia:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo registrar el fichaje de presencia",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoadingFichaje(false)
-    }
-  }
-
-  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
+      <Badge
+        variant={isEntrada ? "default" : "secondary"}
+        className={cn(
+          isEntrada ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800",
+          isPresencia ? "border-blue-200" : "border-gray-200",
+        )}
+      >
+        {isEntrada ? "Entrada" : "Salida"} - {isPresencia ? "Presencia" : "Trabajo"}
+      </Badge>
     )
   }
 
-  if (!user) {
-    return <LoginForm />
+  const calcularTiempoTotal = () => {
+    const fichajesPresencia = fichajes.filter((f) => f.tipo === "presencia")
+    let tiempoTotal = 0
+
+    for (let i = 0; i < fichajesPresencia.length; i += 2) {
+      const entrada = fichajesPresencia.find((f, idx) => idx >= i && f.tipo_fichaje === "entrada")
+      const salida = fichajesPresencia.find((f, idx) => idx > i && f.tipo_fichaje === "salida")
+
+      if (entrada && salida) {
+        const tiempoEntrada = new Date(entrada.fecha_hora).getTime()
+        const tiempoSalida = new Date(salida.fecha_hora).getTime()
+        tiempoTotal += tiempoSalida - tiempoEntrada
+      }
+    }
+
+    const horas = Math.floor(tiempoTotal / (1000 * 60 * 60))
+    const minutos = Math.floor((tiempoTotal % (1000 * 60 * 60)) / (1000 * 60))
+    return `${horas}h ${minutos}m`
   }
 
-  const estaPresente = estadoPresencia === "presente"
+  if (!user) {
+    return <div>Cargando...</div>
+  }
 
   return (
     <MainLayout>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Control de Fichajes</h1>
-            <p className="text-gray-600 mt-1">Gestiona tu tiempo de trabajo y presencia</p>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Control de Fichajes</h1>
         </div>
 
-        {/* Control de Presencia */}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              Control de Presencia
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium">{user.nombre}</span>
-                </div>
-                <Badge
-                  variant={estaPresente ? "default" : "secondary"}
-                  className={estaPresente ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                >
-                  {estaPresente ? "Presente" : "Ausente"}
-                </Badge>
-                {ultimoFichaje && (
-                  <span className="text-sm text-gray-500">
-                    Último:{" "}
-                    {new Date(ultimoFichaje).toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
-              </div>
+        {/* Control de presencia */}
+        <FichajePresencia />
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleFichajePresencia("entrada")}
-                  disabled={isLoadingFichaje || estaPresente}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isLoadingFichaje ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4 mr-2" />
-                  )}
-                  Fichar Entrada
-                </Button>
-                <Button
-                  onClick={() => handleFichajePresencia("salida")}
-                  disabled={isLoadingFichaje || !estaPresente}
-                  variant="outline"
-                  className="border-red-300 text-red-700 hover:bg-red-50"
-                >
-                  {isLoadingFichaje ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Square className="h-4 w-4 mr-2" />
-                  )}
-                  Fichar Salida
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Selector de fecha y resumen */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                Seleccionar Fecha
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    initialFocus
+                    locale={es}
+                  />
+                </PopoverContent>
+              </Popover>
+            </CardContent>
+          </Card>
 
-        {/* Historial de Fichajes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Tiempo Total
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{calcularTiempoTotal()}</div>
+              <p className="text-sm text-gray-500">Tiempo trabajado en el día</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Total Fichajes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{fichajes.length}</div>
+              <p className="text-sm text-gray-500">Fichajes registrados hoy</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Lista de fichajes */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" />
-              Historial de Fichajes
+              <User className="h-5 w-5" />
+              Fichajes del {format(selectedDate, "PPP", { locale: es })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {fichajes.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay fichajes registrados</p>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : fichajes.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No hay fichajes registrados para esta fecha</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {fichajes.map((fichaje, index) => (
-                  <div key={fichaje.id}>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            fichaje.tipo_fichaje === "entrada" ? "bg-green-500" : "bg-red-500"
-                          }`}
-                        />
-                        <div>
-                          <p className="font-medium">{fichaje.tipo_fichaje === "entrada" ? "Entrada" : "Salida"}</p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(fichaje.fecha_hora).toLocaleDateString("es-ES", {
-                              weekday: "long",
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </p>
-                        </div>
+              <div className="space-y-4">
+                {fichajes.map((fichaje) => (
+                  <div
+                    key={fichaje.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-lg font-mono font-semibold text-gray-900">
+                        {new Date(fichaje.fecha_hora).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
                       </div>
-                      <div className="text-right">
-                        <p className="font-mono text-lg">
-                          {new Date(fichaje.fecha_hora).toLocaleTimeString("es-ES", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                        <Badge
-                          variant={fichaje.tipo_fichaje === "entrada" ? "default" : "secondary"}
-                          className={
-                            fichaje.tipo_fichaje === "entrada"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }
-                        >
-                          {fichaje.tipo_fichaje === "entrada" ? "Entrada" : "Salida"}
-                        </Badge>
-                      </div>
+                      {getTipoFichajeBadge(fichaje)}
                     </div>
-                    {index < fichajes.length - 1 && <Separator />}
+                    <div className="text-right">
+                      {fichaje.observaciones && <p className="text-sm text-gray-600">{fichaje.observaciones}</p>}
+                      {fichaje.parte_trabajo_id && (
+                        <p className="text-xs text-blue-600">Parte: {fichaje.parte_trabajo_id}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

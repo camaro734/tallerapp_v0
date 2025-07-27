@@ -16,13 +16,25 @@ export function FichajePresencia() {
   const [ultimoFichaje, setUltimoFichaje] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       cargarEstadoPresencia()
     }
   }, [user])
 
+  // Escuchar eventos de fichaje del header
+  useEffect(() => {
+    const handleFichajeUpdate = () => {
+      if (user?.id) {
+        cargarEstadoPresencia()
+      }
+    }
+
+    window.addEventListener("fichajeUpdated", handleFichajeUpdate)
+    return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
+  }, [user])
+
   const cargarEstadoPresencia = async () => {
-    if (!user) return
+    if (!user?.id) return
 
     try {
       const { data: fichaje } = await getUltimoFichajePresencia(user.id)
@@ -38,7 +50,7 @@ export function FichajePresencia() {
   }
 
   const handleFichajePresencia = async (tipo: "entrada" | "salida") => {
-    if (!user) return
+    if (!user?.id) return
 
     setIsLoading(true)
 
@@ -56,6 +68,13 @@ export function FichajePresencia() {
         title: "Fichaje registrado",
         description: `Has fichado ${tipo === "entrada" ? "la entrada" : "la salida"} correctamente`,
       })
+
+      // Disparar evento para sincronizar con el header
+      window.dispatchEvent(
+        new CustomEvent("fichajeUpdated", {
+          detail: { tipo, timestamp: new Date().toISOString() },
+        }),
+      )
     } catch (error) {
       console.error("Error en fichaje de presencia:", error)
       toast({
