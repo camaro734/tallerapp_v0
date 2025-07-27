@@ -1,94 +1,92 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useAuth } from "@/components/auth-provider"
+import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User, Clock, ClockIcon as ClockIn, ClockIcon as ClockOut } from "lucide-react"
-import { Sidebar } from "./sidebar"
-import { DatabaseStatus } from "./database-status"
-import { createFichaje, getEstadoPresencia } from "@/lib/db"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Menu, Clock, User, LogIn, LogOut, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { getUltimoFichajePresencia, createFichajePresencia } from "@/lib/db"
 import { toast } from "@/hooks/use-toast"
 
-interface MainLayoutProps {
-  children: React.ReactNode
-}
-
-export function MainLayout({ children }: MainLayoutProps) {
-  const [estadoPresencia, setEstadoPresencia] = useState<"presente" | "ausente">("ausente")
+export function MainLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [isPresent, setIsPresent] = useState(false)
+  const [lastEntry, setLastEntry] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [showDatabaseStatus, setShowDatabaseStatus] = useState(false)
-
-  // Usuario mock - en producción vendría del contexto de autenticación
-  const usuario = {
-    id: "11111111-1111-1111-1111-111111111111",
-    nombre: "Administrador",
-    apellidos: "Sistema",
-    email: "admin@cmgplataformas.com",
-    rol: "admin",
-  }
-
-  const cargarEstadoPresencia = async () => {
-    try {
-      const estado = await getEstadoPresencia(usuario.id)
-      setEstadoPresencia(estado)
-    } catch (error) {
-      console.error("Error cargando estado de presencia:", error)
-    }
-  }
 
   useEffect(() => {
-    cargarEstadoPresencia()
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
 
-    // Escuchar eventos de fichaje para sincronizar
-    const handleFichajeUpdate = () => {
-      cargarEstadoPresencia()
-    }
-
-    window.addEventListener("fichajeUpdated", handleFichajeUpdate)
-    return () => window.removeEventListener("fichajeUpdated", handleFichajeUpdate)
+    return () => clearInterval(timer)
   }, [])
 
-  const handleFichaje = async (tipoFichaje: "entrada" | "salida") => {
+  const checkPresenceStatus = useCallback(async () => {
+    if (!user) return
+
+    try {
+      const { data: lastFichaje, error } = await getUltimoFichajePresencia(user.id)
+      if (error) {
+        console.error("Error checking presence:", error)
+        return
+      }
+
+      if (lastFichaje) {
+        setIsPresent(lastFichaje.tipo_fichaje === "entrada")
+        setLastEntry(
+          lastFichaje.tipo_fichaje === "entrada"
+            ? `Entrada - ${new Date(lastFichaje.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            : `Salida - ${new Date(lastFichaje.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        )
+      } else {
+        setIsPresent(false)
+        setLastEntry(null)
+      }
+    } catch (error) {
+      console.error("Error checking presence:", error)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      checkPresenceStatus()
+    }
+  }, [user, checkPresenceStatus])
+
+  const handleFichaje = async (tipo: "entrada" | "salida") => {
+    if (!user || isLoading) return
+
     setIsLoading(true)
     try {
-      const result = await createFichaje({
-        usuario_id: usuario.id,
-        tipo: "presencia",
-        tipo_fichaje: tipoFichaje,
-        observaciones: `Fichaje de ${tipoFichaje} desde header`,
+      const result = await createFichajePresencia(user.id, tipo)
+
+      if (!result.success) {
+        throw new Error(result.error || "Error en el fichaje")
+      }
+
+      await checkPresenceStatus()
+
+      toast({
+        title: "Fichaje registrado",
+        description: `Has fichado ${tipo === "entrada" ? "la entrada" : "la salida"} correctamente`,
       })
 
-      if (result.success) {
-        setEstadoPresencia(tipoFichaje === "entrada" ? "presente" : "ausente")
-
-        // Disparar evento para sincronizar otros componentes
-        window.dispatchEvent(new CustomEvent("fichajeUpdated"))
-
-        toast({
-          title: "Fichaje registrado",
-          description: `${tipoFichaje === "entrada" ? "Entrada" : "Salida"} registrada correctamente`,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "No se pudo registrar el fichaje",
-          variant: "destructive",
-        })
-      }
+      // Disparar evento personalizado para sincronizar con otros componentes
+      window.dispatchEvent(
+        new CustomEvent("fichajeUpdated", {
+          detail: { tipo, timestamp: new Date().toISOString() },
+        }),
+      )
     } catch (error) {
       console.error("Error en fichaje:", error)
       toast({
         title: "Error",
-        description: "Error al registrar el fichaje",
+        description: "No se pudo registrar el fichaje",
         variant: "destructive",
       })
     } finally {
@@ -96,116 +94,99 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }
 
-  const getFichajeButton = () => {
-    if (estadoPresencia === "ausente") {
-      return (
-        <Button
-          onClick={() => handleFichaje("entrada")}
-          disabled={isLoading}
-          size="sm"
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <ClockIn className="h-4 w-4 mr-1" />
-          {isLoading ? "Fichando..." : "Entrada"}
-        </Button>
-      )
-    } else {
-      return (
-        <Button
-          onClick={() => handleFichaje("salida")}
-          disabled={isLoading}
-          size="sm"
-          variant="outline"
-          className="border-red-200 text-red-700 hover:bg-red-50"
-        >
-          <ClockOut className="h-4 w-4 mr-1" />
-          {isLoading ? "Fichando..." : "Salida"}
-        </Button>
-      )
-    }
+  if (!user) {
+    return <div className="min-h-screen bg-gray-50">{children}</div>
+  }
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  }
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-gray-900">CMG Hidráulica</h1>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              {/* Botón de fichaje sincronizado */}
-              {getFichajeButton()}
-
-              {/* Botón de estado de base de datos */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDatabaseStatus(!showDatabaseStatus)}
-                className="text-xs"
-              >
-                DB Status
+    <div className="min-h-screen bg-gray-50">
+      {/* Header compacto */}
+      <header className="bg-blue-600 text-white">
+        {/* Barra superior */}
+        <div className="flex items-center justify-between px-4 py-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-white hover:bg-blue-700">
+                <Menu className="h-4 w-4" />
               </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-0">
+              <Sidebar />
+            </SheetContent>
+          </Sheet>
 
-              {/* Menú de usuario */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-blue-500 text-white">
-                        {usuario.nombre.charAt(0)}
-                        {usuario.apellidos.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">
-                        {usuario.nombre} {usuario.apellidos}
-                      </p>
-                      <p className="w-[200px] truncate text-sm text-muted-foreground">{usuario.email}</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Perfil</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Clock className="mr-2 h-4 w-4" />
-                    <span>Mis Fichajes</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Configuración</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Cerrar sesión</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <h1 className="text-lg font-semibold">CMG Hidráulica</h1>
+
+          <Badge variant="destructive" className="text-xs">
+            {user.rol === "admin" ? "Admin" : user.rol === "jefe_taller" ? "Jefe" : "Técnico"}
+          </Badge>
+        </div>
+
+        {/* Info usuario compacta */}
+        <div className="px-4 py-1 bg-blue-700/50">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold">
+              {user.nombre
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">{user.nombre}</p>
+              <p className="text-xs text-blue-200 truncate">{user.email}</p>
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* Database Status Panel */}
-        {showDatabaseStatus && (
-          <div className="bg-white border-b p-4">
-            <DatabaseStatus />
+        {/* Control de presencia ultra compacto */}
+        <div className="px-4 py-2 bg-white/10 border-t border-blue-500/30">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Clock className="h-3 w-3" />
+              <span className="font-mono font-medium">{formatTime(currentTime)}</span>
+              <span className="text-blue-200">{formatDate(currentTime)}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <User className="h-3 w-3" />
+              <span className="truncate max-w-20">{user.nombre.split(" ")[0]}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {lastEntry && <span className="text-blue-200 text-xs">{lastEntry}</span>}
+              <Button
+                size="sm"
+                onClick={() => handleFichaje(isPresent ? "salida" : "entrada")}
+                disabled={isLoading}
+                className={`h-6 px-2 text-xs ${
+                  isPresent ? "bg-red-500 hover:bg-red-600 text-white" : "bg-green-500 hover:bg-green-600 text-white"
+                }`}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>
+                    {isPresent ? <LogOut className="h-3 w-3 mr-1" /> : <LogIn className="h-3 w-3 mr-1" />}
+                    {isPresent ? "Salida" : "Entrada"}
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-auto p-6">{children}</main>
-      </div>
+      {/* Contenido principal */}
+      <main className="flex-1">{children}</main>
     </div>
   )
 }

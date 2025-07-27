@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js"
+
 // Mock database with TypeScript interfaces
 
 export interface Usuario {
@@ -138,6 +140,35 @@ export interface Cita {
   motivo: string
   created_at: string
   updated_at: string
+}
+
+// Supabase configuration
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+let supabase: any = null
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey)
+}
+
+// Check if Supabase is properly configured
+export const isSupabaseReady = (): boolean => {
+  return !!(supabaseUrl && supabaseAnonKey && supabase)
+}
+
+// Test Supabase connection
+export const testSupabaseConnection = async () => {
+  if (!isSupabaseReady()) {
+    return { connected: false, error: "Supabase not configured" }
+  }
+
+  try {
+    const { data, error } = await supabase.from("usuarios").select("count").limit(1)
+    return { connected: !error, error }
+  } catch (error) {
+    return { connected: false, error }
+  }
 }
 
 // Mock users data
@@ -604,377 +635,291 @@ export const authenticateUser = async (email: string, password?: string) => {
   return { data: null, error: { message: "Invalid credentials" } }
 }
 
-// User functions
-export const getUsuariosFromMock = async () => ({ data: usuarios, error: null })
-export const getUserByIdFromMock = async (id: string) => ({
-  data: usuarios.find((u) => u.id === id) || null,
-  error: null,
-})
-
-// Fichaje functions
-export const createFichajeFromMock = (fichajeData: Omit<Fichaje, "id" | "created_at">) => {
-  const newFichaje: Fichaje = {
-    ...fichajeData,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
+// Funciones de base de datos para usuarios
+export async function getUsuarios() {
+  if (!isSupabaseReady()) {
+    // Datos mock para desarrollo
+    return usuarios
   }
-  fichajes.push(newFichaje)
-  return { data: newFichaje, error: null }
-}
 
-export const getFichajesByParteIdFromMock = async (parteId: string) => {
-  return { data: fichajes.filter((f) => f.parte_trabajo_id === parteId), error: null }
-}
+  const { data, error } = await supabase.from("usuarios").select("*").eq("activo", true).order("nombre")
 
-export const getUltimoFichajeFromMock = async (usuarioId: string, parteId: string) => {
-  const fichajesUsuario = fichajes
-    .filter((f) => f.usuario_id === usuarioId && f.parte_trabajo_id === parteId && f.tipo === "trabajo")
-    .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-  return { data: fichajesUsuario.length > 0 ? fichajesUsuario[0] : null, error: null }
-}
-
-export const getUltimoFichajeActivoPorUsuarioFromMock = async (usuarioId: string) => {
-  const userFichajes = fichajes
-    .filter((f) => f.usuario_id === usuarioId && f.tipo === "trabajo")
-    .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-
-  const ultimoFichaje = userFichajes[0]
-  if (ultimoFichaje && ultimoFichaje.tipo_fichaje === "entrada") {
-    const parte = partesTrabajo.find((p) => p.id === ultimoFichaje.parte_trabajo_id)
-    return { data: { ...ultimoFichaje, parte_trabajo: parte }, error: null }
+  if (error) {
+    console.error("Error fetching usuarios:", error)
+    return usuarios
   }
-  return { data: null, error: null }
+
+  return data || usuarios
 }
 
-export const getUltimoFichajePresenciaFromMock = async (userId: string) => {
-  const userFichajes = fichajes
-    .filter((f) => f.usuario_id === userId && f.tipo === "presencia")
-    .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
-  return { data: userFichajes.length > 0 ? userFichajes[0] : null, error: null }
+export async function getUsuarioById(id: string) {
+  if (!isSupabaseReady()) {
+    return usuarios.find((u) => u.id === id) || null
+  }
+
+  const { data, error } = await supabase.from("usuarios").select("*").eq("id", id).single()
+
+  if (error) {
+    console.error("Error fetching usuario:", error)
+    return usuarios.find((u) => u.id === id) || null
+  }
+
+  return data
 }
 
-export const createFichajePresenciaFromMock = async (userId: string, tipoFichaje: "entrada" | "salida") => {
-  const fichajeData: Omit<Fichaje, "id" | "created_at"> = {
+// Funciones de fichajes
+export async function getFichajesUsuario(usuarioId: string, fecha?: string) {
+  if (!isSupabaseReady()) {
+    let fichajesFiltrados = fichajes.filter((f) => f.usuario_id === usuarioId)
+
+    if (fecha) {
+      fichajesFiltrados = fichajesFiltrados.filter((f) => f.fecha_hora.startsWith(fecha))
+    }
+
+    return {
+      data: fichajesFiltrados.sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime()),
+      error: null,
+    }
+  }
+
+  let query = supabase
+    .from("fichajes")
+    .select("*")
+    .eq("usuario_id", usuarioId)
+    .order("fecha_hora", { ascending: false })
+
+  if (fecha) {
+    const startOfDay = new Date(fecha)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(fecha)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    query = query.gte("fecha_hora", startOfDay.toISOString()).lte("fecha_hora", endOfDay.toISOString())
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("Error fetching fichajes:", error)
+    return { data: [], error }
+  }
+
+  return { data: data || [], error: null }
+}
+
+export async function createFichaje(fichaje: {
+  usuario_id: string
+  tipo: "presencia" | "trabajo"
+  tipo_fichaje: "entrada" | "salida"
+  parte_trabajo_id?: string
+  observaciones?: string
+}) {
+  if (!isSupabaseReady()) {
+    const newFichaje: Fichaje = {
+      id: Math.random().toString(36).substr(2, 9),
+      ...fichaje,
+      fecha_hora: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    }
+    fichajes.push(newFichaje)
+    return { success: true, data: newFichaje }
+  }
+
+  const { data, error } = await supabase
+    .from("fichajes")
+    .insert([
+      {
+        ...fichaje,
+        fecha_hora: new Date().toISOString(),
+      },
+    ])
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error creating fichaje:", error)
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data }
+}
+
+export async function getEstadoPresencia(usuarioId: string): Promise<"presente" | "ausente"> {
+  if (!isSupabaseReady()) {
+    const fichajesUsuario = fichajes
+      .filter((f) => f.usuario_id === usuarioId && f.tipo === "presencia")
+      .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
+
+    if (fichajesUsuario.length === 0) return "ausente"
+    return fichajesUsuario[0].tipo_fichaje === "entrada" ? "presente" : "ausente"
+  }
+
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+
+  const { data, error } = await supabase
+    .from("fichajes")
+    .select("tipo_fichaje, fecha_hora")
+    .eq("usuario_id", usuarioId)
+    .eq("tipo", "presencia")
+    .gte("fecha_hora", hoy.toISOString())
+    .order("fecha_hora", { ascending: false })
+    .limit(1)
+
+  if (error || !data || data.length === 0) {
+    return "ausente"
+  }
+
+  return data[0].tipo_fichaje === "entrada" ? "presente" : "ausente"
+}
+
+export const getUltimoFichajePresencia = async (userId: string) => {
+  if (!isSupabaseReady()) {
+    const userFichajes = fichajes
+      .filter((f) => f.usuario_id === userId && f.tipo === "presencia")
+      .sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime())
+    return { data: userFichajes.length > 0 ? userFichajes[0] : null, error: null }
+  }
+
+  const { data, error } = await supabase
+    .from("fichajes")
+    .select("*")
+    .eq("usuario_id", userId)
+    .eq("tipo", "presencia")
+    .order("fecha_hora", { ascending: false })
+    .limit(1)
+    .single()
+
+  return { data: data || null, error }
+}
+
+export const createFichajePresencia = async (userId: string, tipoFichaje: "entrada" | "salida") => {
+  const fichajeData = {
     usuario_id: userId,
     parte_trabajo_id: null,
-    tipo: "presencia",
+    tipo: "presencia" as const,
     tipo_fichaje: tipoFichaje,
-    fecha_hora: new Date().toISOString(),
     observaciones: `Fichaje de ${tipoFichaje}`,
   }
-  return createFichajeFromMock(fichajeData)
+
+  return createFichaje(fichajeData)
 }
 
-// Materials functions
-export const searchMaterialesFromMock = async (term: string) => {
-  if (!term) return { data: [], error: null }
-  const lowerTerm = term.toLowerCase()
-  const data = materiales.filter(
-    (m) =>
-      m.nombre.toLowerCase().includes(lowerTerm) ||
-      m.codigo.toLowerCase().includes(lowerTerm) ||
-      (m.descripcion && m.descripcion.toLowerCase().includes(lowerTerm)),
-  )
-  return { data, error: null }
+// Funciones de citas
+export async function getCitas() {
+  if (!isSupabaseReady()) {
+    return citas
+  }
+
+  const { data, error } = await supabase
+    .from("citas")
+    .select(`
+      *,
+      clientes(nombre),
+      vehiculos(matricula, marca, modelo),
+      usuarios(nombre, apellidos)
+    `)
+    .order("fecha_hora", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching citas:", error)
+    return citas
+  }
+
+  return data || citas
 }
 
-export const getMaterialesByParteIdFromMock = async (parteId: string) => {
-  const parte = partesTrabajo.find((p) => p.id === parteId)
-  return { data: parte?.fotos_adjuntas || [], error: null }
-}
-
-// Work Orders functions
-export const getAllPartesFromMock = async () => {
-  const data = partesTrabajo.map((pt) => {
-    const cliente = clientes.find((c) => c.id === pt.cliente_id)
-    const vehiculo = vehiculos.find((v) => v.id === pt.vehiculo_id)
-    const tecnico = usuarios.find((u) => u.id === pt.tecnico_asignado)
-    return {
-      ...pt,
-      cliente,
-      vehiculo,
-      tecnico,
-      cliente_nombre: cliente?.nombre,
+export async function createCita(cita: {
+  titulo: string
+  descripcion?: string
+  fecha_hora: string
+  duracion?: number
+  cliente_id?: string
+  vehiculo_id?: string
+  tecnico_id?: string
+  tipo_servicio?: string
+  observaciones?: string
+  created_by: string
+}) {
+  if (!isSupabaseReady()) {
+    const newCita: Cita = {
+      id: Math.random().toString(36).substr(2, 9),
+      usuario_id: cita.created_by,
+      fecha: cita.fecha_hora.split("T")[0],
+      hora: cita.fecha_hora.split("T")[1].substring(0, 5),
+      motivo: cita.titulo,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
-  })
-  return { data, error: null }
-}
-
-export const getParteByIdFromMock = async (id: string) => {
-  const parte = partesTrabajo.find((p) => p.id === id)
-  if (!parte) return { data: null, error: { message: "Parte no encontrado" } }
-
-  const cliente = clientes.find((c) => c.id === parte.cliente_id)
-  const vehiculo = vehiculos.find((v) => v.id === parte.vehiculo_id)
-  const tecnico = usuarios.find((u) => u.id === parte.tecnico_asignado)
-  const data = { ...parte, cliente, vehiculo, tecnico }
-  return { data, error: null }
-}
-
-export const updateParteFromMock = (id: string, updates: Partial<ParteTrabajo>) => {
-  const itemIndex = partesTrabajo.findIndex((i) => i.id === id)
-  if (itemIndex === -1) {
-    return { data: null, error: { message: "Not found" } }
+    citas.push(newCita)
+    return { success: true, data: newCita }
   }
-  const updatedItem = { ...partesTrabajo[itemIndex], ...updates, updated_at: new Date().toISOString() }
-  partesTrabajo[itemIndex] = updatedItem
-  return { data: updatedItem, error: null }
-}
 
-// Clients & Vehicles functions
-export const getClientesFromMock = async () => ({ data: clientes, error: null })
-export const getVehiculosFromMock = async () => ({ data: vehiculos, error: null })
+  const { data, error } = await supabase.from("citas").insert([cita]).select().single()
 
-export const getVehiculosByClienteFromMock = async (clienteId: string) => {
-  return { data: vehiculos.filter((v) => v.cliente_id === clienteId), error: null }
-}
-
-// CRUD operations
-export const createClienteFromMock = async (
-  data: Omit<Cliente, "id" | "created_at" | "updated_at">,
-): Promise<Cliente> => {
-  const newCliente: Cliente = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    activo: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+  if (error) {
+    console.error("Error creating cita:", error)
+    return { success: false, error: error.message }
   }
-  clientes.push(newCliente)
-  return newCliente
+
+  return { success: true, data }
 }
 
-export const createVehiculoFromMock = async (
-  data: Omit<Vehiculo, "id" | "created_at" | "updated_at">,
-): Promise<Vehiculo> => {
-  const newVehiculo: Vehiculo = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    activo: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+// Funciones de partes de trabajo
+export async function getPartesTrabajoRecientes() {
+  if (!isSupabaseReady()) {
+    return partesTrabajo.slice(0, 10)
   }
-  vehiculos.push(newVehiculo)
-  return newVehiculo
-}
 
-export const createParteFromMock = (data: Omit<ParteTrabajo, "id" | "numero_parte" | "created_at" | "updated_at">) => {
-  const numeroPartes = partesTrabajo.length + 1
-  const newParte: ParteTrabajo = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    numero_parte: `PT-2024-${numeroPartes.toString().padStart(3, "0")}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+  const { data, error } = await supabase
+    .from("partes_trabajo")
+    .select(`
+      *,
+      clientes(nombre),
+      vehiculos(matricula, marca, modelo),
+      usuarios(nombre, apellidos)
+    `)
+    .order("created_at", { ascending: false })
+    .limit(10)
+
+  if (error) {
+    console.error("Error fetching partes trabajo:", error)
+    return partesTrabajo.slice(0, 10)
   }
-  partesTrabajo.push(newParte)
-  return { data: newParte, error: null }
+
+  return data || partesTrabajo.slice(0, 10)
 }
 
-export const createParteTrabajoFromMock = async (
-  data: Omit<ParteTrabajo, "id" | "numero_parte" | "created_at" | "updated_at">,
-): Promise<ParteTrabajo> => {
-  const numeroPartes = partesTrabajo.length + 1
-  const newParte: ParteTrabajo = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    numero_parte: `PT-2024-${numeroPartes.toString().padStart(3, "0")}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+// Funciones de materiales
+export async function getMateriales() {
+  if (!isSupabaseReady()) {
+    return materiales
   }
-  partesTrabajo.push(newParte)
-  return newParte
-}
 
-export const createPersonalFromMock = async (
-  data: Omit<Personal, "id" | "created_at" | "updated_at">,
-): Promise<Personal> => {
-  const newPersonal: Personal = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+  const { data, error } = await supabase.from("materiales").select("*").eq("activo", true).order("nombre")
+
+  if (error) {
+    console.error("Error fetching materiales:", error)
+    return materiales
   }
-  personal.push(newPersonal)
-  return newPersonal
+
+  return data || materiales
 }
 
-export const createVacacionFromMock = async (
-  data: Omit<Vacacion, "id" | "created_at" | "updated_at">,
-): Promise<Vacacion> => {
-  const newVacacion: Vacacion = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+// Funciones de clientes
+export async function getClientesFromDB() {
+  if (!isSupabaseReady()) {
+    return clientes
   }
-  vacaciones.push(newVacacion)
-  return newVacacion
-}
 
-export const createMaterialFromMock = async (
-  data: Omit<Material, "id" | "created_at" | "updated_at">,
-): Promise<Material> => {
-  const newMaterial: Material = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+  const { data, error } = await supabase.from("clientes").select("*").eq("activo", true).order("nombre")
+
+  if (error) {
+    console.error("Error fetching clientes:", error)
+    return clientes
   }
-  materiales.push(newMaterial)
-  return newMaterial
-}
 
-export const createCitaFromMock = async (data: Omit<Cita, "id" | "created_at" | "updated_at">): Promise<Cita> => {
-  const newCita: Cita = {
-    ...data,
-    id: Math.random().toString(36).substr(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-  citas.push(newCita)
-  return newCita
-}
-
-// Update operations
-export const updateParteTrabajoFromMock = async (
-  id: string,
-  data: Partial<ParteTrabajo>,
-): Promise<ParteTrabajo | null> => {
-  const index = partesTrabajo.findIndex((p) => p.id === id)
-  if (index === -1) return null
-
-  partesTrabajo[index] = {
-    ...partesTrabajo[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return partesTrabajo[index]
-}
-
-export const updatePersonalFromMock = async (id: string, data: Partial<Personal>): Promise<Personal | null> => {
-  const index = personal.findIndex((p) => p.id === id)
-  if (index === -1) return null
-
-  personal[index] = {
-    ...personal[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return personal[index]
-}
-
-export const updateFichajeFromMock = async (id: string, data: Partial<Fichaje>): Promise<Fichaje | null> => {
-  const index = fichajes.findIndex((f) => f.id === id)
-  if (index === -1) return null
-
-  fichajes[index] = {
-    ...fichajes[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return fichajes[index]
-}
-
-export const updateVacacionFromMock = async (id: string, data: Partial<Vacacion>): Promise<Vacacion | null> => {
-  const index = vacaciones.findIndex((v) => v.id === id)
-  if (index === -1) return null
-
-  vacaciones[index] = {
-    ...vacaciones[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return vacaciones[index]
-}
-
-export const updateMaterialFromMock = async (id: string, data: Partial<Material>): Promise<Material | null> => {
-  const index = materiales.findIndex((m) => m.id === id)
-  if (index === -1) return null
-
-  materiales[index] = {
-    ...materiales[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return materiales[index]
-}
-
-export const updateCitaFromMock = async (id: string, data: Partial<Cita>): Promise<Cita | null> => {
-  const index = citas.findIndex((c) => c.id === id)
-  if (index === -1) return null
-
-  citas[index] = {
-    ...citas[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-  return citas[index]
-}
-
-// Delete operations
-export const deleteClienteFromMock = async (id: string): Promise<boolean> => {
-  const index = clientes.findIndex((c) => c.id === id)
-  if (index === -1) return false
-
-  clientes.splice(index, 1)
-  return true
-}
-
-export const deleteVehiculoFromMock = async (id: string): Promise<boolean> => {
-  const index = vehiculos.findIndex((v) => v.id === id)
-  if (index === -1) return false
-
-  vehiculos.splice(index, 1)
-  return true
-}
-
-export const deleteParteTrabajoFromMock = async (id: string): Promise<boolean> => {
-  const index = partesTrabajo.findIndex((p) => p.id === id)
-  if (index === -1) return false
-
-  partesTrabajo.splice(index, 1)
-  return true
-}
-
-export const deletePersonalFromMock = async (id: string): Promise<boolean> => {
-  const index = personal.findIndex((p) => p.id === id)
-  if (index === -1) return false
-
-  personal.splice(index, 1)
-  return true
-}
-
-export const deleteFichajeFromMock = async (id: string): Promise<boolean> => {
-  const index = fichajes.findIndex((f) => f.id === id)
-  if (index === -1) return false
-
-  fichajes.splice(index, 1)
-  return true
-}
-
-export const deleteVacacionFromMock = async (id: string): Promise<boolean> => {
-  const index = vacaciones.findIndex((v) => v.id === id)
-  if (index === -1) return false
-
-  vacaciones.splice(index, 1)
-  return true
-}
-
-export const deleteMaterialFromMock = async (id: string): Promise<boolean> => {
-  const index = materiales.findIndex((m) => m.id === id)
-  if (index === -1) return false
-
-  materiales.splice(index, 1)
-  return true
-}
-
-export const deleteCitaFromMock = async (id: string): Promise<boolean> => {
-  const index = citas.findIndex((c) => c.id === id)
-  if (index === -1) return false
-
-  citas.splice(index, 1)
-  return true
+  return data || clientes
 }
 
 // Permission checks
@@ -1000,401 +945,5 @@ export const canManageClients = (rol?: string): boolean => !!rol && ["admin", "j
 export const canManageMaterials = (rol?: string): boolean =>
   !!rol && ["admin", "jefe_taller", "recepcion"].includes(rol)
 
-import { supabase } from "./supabase-client"
-
-// Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-// Check if Supabase is properly configured
-export const isSupabaseReady = (): boolean => {
-  return !!(supabaseUrl && supabaseAnonKey)
-}
-
-// Test Supabase connection
-export const testSupabaseConnection = async () => {
-  try {
-    const { data, error } = await supabase.from("usuarios").select("count").limit(1)
-    return { connected: !error, error }
-  } catch (error) {
-    return { connected: false, error }
-  }
-}
-
-// Export all database functions from supabase-client
-export * from "./supabase-client"
-
-// Database utility functions
-export async function getUsuariosFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("usuarios").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getClientesFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("clientes").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getVehiculosFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("vehiculos").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getMaterialesFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("materiales").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getPartesTrabajoFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("partes_trabajo").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getFichajesFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("fichajes").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getCitasFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("citas").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getVacacionesFromSupabase() {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("solicitudes_vacaciones").select("*")
-  if (error) throw error
-  return data
-}
-
-export async function getUsuarioByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("usuarios").select("*").eq("id", id).single()
-  if (error) throw error
-  return data
-}
-
-export async function getClienteByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("clientes").select("*").eq("id", id).single()
-  if (error) throw error
-  return data
-}
-
-export async function getVehiculoByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase.from("vehiculos").select("*").eq("id", id).single()
-  if (error) throw error
-  return data
-}
-
-export async function getParteTrabajoByIdFromSupabase(id: string) {
-  if (!isSupabaseReady()) {
-    throw new Error("Supabase not configured")
-  }
-
-  const { data, error } = await supabase
-    .from("partes_trabajo")
-    .select(`
-      *,
-      cliente:clientes(*),
-      vehiculo:vehiculos(*),
-      tecnico:usuarios(*)
-    `)
-    .eq("id", id)
-    .single()
-  if (error) throw error
-  return data
-}
-
 export const fichajesDB = fichajes
 export const vacacionesDB = vacaciones
-
-// Funciones de base de datos para usuarios
-export async function getUsuarios() {
-  if (!isSupabaseReady()) {
-    // Datos mock para desarrollo
-    return [
-      {
-        id: "11111111-1111-1111-1111-111111111111",
-        email: "admin@cmgplataformas.com",
-        nombre: "Administrador",
-        apellidos: "Sistema",
-        rol: "admin",
-        activo: true,
-      },
-    ]
-  }
-
-  const { data, error } = await supabase.from("usuarios").select("*").eq("activo", true).order("nombre")
-
-  if (error) {
-    console.error("Error fetching usuarios:", error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function getUsuarioById(id: string) {
-  if (!isSupabaseReady()) {
-    return {
-      id: "11111111-1111-1111-1111-111111111111",
-      email: "admin@cmgplataformas.com",
-      nombre: "Administrador",
-      apellidos: "Sistema",
-      rol: "admin",
-      activo: true,
-    }
-  }
-
-  const { data, error } = await supabase.from("usuarios").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Error fetching usuario:", error)
-    return null
-  }
-
-  return data
-}
-
-// Funciones de fichajes
-export async function getFichajesUsuario(usuarioId: string, fecha?: string) {
-  if (!isSupabaseReady()) {
-    return []
-  }
-
-  let query = supabase
-    .from("fichajes")
-    .select("*")
-    .eq("usuario_id", usuarioId)
-    .order("fecha_hora", { ascending: false })
-
-  if (fecha) {
-    const startOfDay = new Date(fecha)
-    startOfDay.setHours(0, 0, 0, 0)
-    const endOfDay = new Date(fecha)
-    endOfDay.setHours(23, 59, 59, 999)
-
-    query = query.gte("fecha_hora", startOfDay.toISOString()).lte("fecha_hora", endOfDay.toISOString())
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error("Error fetching fichajes:", error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function createFichaje(fichaje: {
-  usuario_id: string
-  tipo: "presencia" | "trabajo"
-  tipo_fichaje: "entrada" | "salida"
-  parte_trabajo_id?: string
-  observaciones?: string
-}) {
-  if (!isSupabaseReady()) {
-    console.log("Mock: Fichaje creado", fichaje)
-    return { success: true, data: { id: "mock-id", ...fichaje } }
-  }
-
-  const { data, error } = await supabase
-    .from("fichajes")
-    .insert([
-      {
-        ...fichaje,
-        fecha_hora: new Date().toISOString(),
-      },
-    ])
-    .select()
-    .single()
-
-  if (error) {
-    console.error("Error creating fichaje:", error)
-    return { success: false, error: error.message }
-  }
-
-  return { success: true, data }
-}
-
-export async function getEstadoPresencia(usuarioId: string): Promise<"presente" | "ausente"> {
-  if (!isSupabaseReady()) {
-    return "ausente"
-  }
-
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-
-  const { data, error } = await supabase
-    .from("fichajes")
-    .select("tipo_fichaje, fecha_hora")
-    .eq("usuario_id", usuarioId)
-    .eq("tipo", "presencia")
-    .gte("fecha_hora", hoy.toISOString())
-    .order("fecha_hora", { ascending: false })
-    .limit(1)
-
-  if (error || !data || data.length === 0) {
-    return "ausente"
-  }
-
-  return data[0].tipo_fichaje === "entrada" ? "presente" : "ausente"
-}
-
-// Funciones de citas
-export async function getCitas() {
-  if (!isSupabaseReady()) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from("citas")
-    .select(`
-      *,
-      clientes(nombre),
-      vehiculos(matricula, marca, modelo),
-      usuarios(nombre, apellidos)
-    `)
-    .order("fecha_hora", { ascending: true })
-
-  if (error) {
-    console.error("Error fetching citas:", error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function createCita(cita: {
-  titulo: string
-  descripcion?: string
-  fecha_hora: string
-  duracion?: number
-  cliente_id?: string
-  vehiculo_id?: string
-  tecnico_id?: string
-  tipo_servicio?: string
-  observaciones?: string
-  created_by: string
-}) {
-  if (!isSupabaseReady()) {
-    console.log("Mock: Cita creada", cita)
-    return { success: true, data: { id: "mock-id", ...cita } }
-  }
-
-  const { data, error } = await supabase.from("citas").insert([cita]).select().single()
-
-  if (error) {
-    console.error("Error creating cita:", error)
-    return { success: false, error: error.message }
-  }
-
-  return { success: true, data }
-}
-
-// Funciones de partes de trabajo
-export async function getPartesTrabajoRecientes() {
-  if (!isSupabaseReady()) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from("partes_trabajo")
-    .select(`
-      *,
-      clientes(nombre),
-      vehiculos(matricula, marca, modelo),
-      usuarios(nombre, apellidos)
-    `)
-    .order("created_at", { ascending: false })
-    .limit(10)
-
-  if (error) {
-    console.error("Error fetching partes trabajo:", error)
-    return []
-  }
-
-  return data || []
-}
-
-// Funciones de materiales
-export async function getMateriales() {
-  if (!isSupabaseReady()) {
-    return []
-  }
-
-  const { data, error } = await supabase.from("materiales").select("*").eq("activo", true).order("nombre")
-
-  if (error) {
-    console.error("Error fetching materiales:", error)
-    return []
-  }
-
-  return data || []
-}
-
-// Funciones de clientes
-export async function getClientesFromDB() {
-  if (!isSupabaseReady()) {
-    return []
-  }
-
-  const { data, error } = await supabase.from("clientes").select("*").eq("activo", true).order("nombre")
-
-  if (error) {
-    console.error("Error fetching clientes:", error)
-    return []
-  }
-
-  return data || []
-}
